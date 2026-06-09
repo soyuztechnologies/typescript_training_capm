@@ -221,7 +221,7 @@ this.on('largestOrder', async (req,res) => {
 this.on('largestOrder', async (req) => {                                        // row 7: dropped res
   try {
     const tx = cds.tx(req)
-    const reply = await tx.read(PurchaseOrderSet_).orderBy({ GROSS_AMOUNT: 'desc' }).limit(1)  // row 2
+    const reply = await tx.read(PurchaseOrderSet_).orderBy({ GROSS_AMOUNT: 'desc' } as any).limit(1)  // row 2
     return reply
   } catch (error) {
     return 'Error ' + String(error)                                            // row 4
@@ -279,7 +279,7 @@ this.on('setOrderProcessing', PurchaseOrderSet, async req => {
 this.on('setOrderProcessing', PurchaseOrderSet_, async req => {                  // row 2
   const tx = cds.tx(req)
   await tx.update(PurchaseOrderSet_, (req.params[0] as { ID: string }).ID)       // rows 2, 6
-    .set({ OVERALL_STATUS: 'D' })
+    .set({ OVERALL_STATUS: 'D' } as any)
 })
 ```
 
