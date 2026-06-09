@@ -1,5 +1,68 @@
 # Step 4 — Migrate CDSService.ts with SAP's Generated Types
 
+# CAP TypeScript Journey: Prelude — Generate Entity Types with cds-typer
+
+Before you can safely type your CAP service handlers, you need **generated TypeScript interfaces** for your entities. This is where `cds-typer` comes in.
+
+---
+
+## Prerequisites: Install cds-typer
+
+First, add the code generator to your project as a dev dependency:
+
+```bash
+npm install --save-dev @cap-js/cds-typer
+```
+
+<sub>**code by anubhav trainings**</sub>
+
+This installs the official SAP tool that generates TypeScript type definitions directly from your `.cds` data model.
+
+---
+
+## Generate Types from Your CDS Model
+
+Run the generator on your CDS schema files:
+
+```bash
+cds-typer "*"
+```
+
+<sub>**code by anubhav trainings**</sub>
+
+<div style="background-color: #f8bbd0; padding: 12px; border-radius: 4px; margin: 16px 0;">
+<strong>📍 What This Does:</strong> Scans all .cds files in your project and generates TypeScript interfaces for every entity, type, and aspect defined in your data model.
+</div>
+
+### Generated Output Structure
+
+This creates a folder (commonly at the project root):
+
+```
+@cds-models/
+├── index.d.ts
+├── CDSService/
+│   ├── index.d.ts
+│   ├── index.ts
+│   └── types.ts
+├── CatalogService/
+│   ├── index.d.ts
+│   ├── index.ts
+│   └── types.ts
+└── ...
+```
+
+<sub>**code by anubhav trainings**</sub>
+
+Each service folder contains:
+
+- **`index.d.ts`** — TypeScript type declaration files (pure types)
+- **`index.ts`** — Runtime definitions for entities (classes/interfaces)
+- **`types.ts`** — Helper type utilities
+
+These are **auto-generated** — don't edit them. When you update your `.cds` files, re-run `cds-typer "*"` to regenerate.
+
+
 ---
 
 ## 4a. The Key Concept: What cds-typer Generated
