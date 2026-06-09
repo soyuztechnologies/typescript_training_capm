@@ -46,3 +46,4 @@ class NamedValue<T> {
 let value = new NamedValue<number>('myNumber');
 value.setValue(10);
 console.log(value.toString()); // myNumber: 10
+
