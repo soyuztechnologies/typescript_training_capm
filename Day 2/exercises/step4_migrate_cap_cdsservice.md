@@ -1,431 +1,270 @@
-# Step 4 — Migrate CDSService.ts with SAP's Generated Types
+# CAP TypeScript Journey: Prelude — Generate Entity Types with cds-typer
 
-Now that `cds-typer` has generated the entity types, you can migrate your main service handler with full type safety. This step ties everything together: you'll use the generated entity types, leverage your utility functions with proper typing, and navigate the most complex type scenarios in the CAP ecosystem.
-
----
-
-## 4a. Understanding Generated Types: The Naming Rule
-
-<div style="background-color: #f8bbd0; padding: 12px; border-radius: 4px; margin: 16px 0;">
-<strong>📍 Single Most Important Thing:</strong> cds-typer generates TWO types for every entity. The naming rule determines which one to use.
-</div>
-
-Open `@cds-models/CDSService/index.ts`. For every entity, you'll find two types:
-
-| Generated Name | Meaning | Example Use |
-|---|---|---|
-| `ProductSet` | One row (singular) | A single product object |
-| `ProductSet_` (trailing underscore) | The collection — extends `Array<ProductSet>` | The array a READ returns |
-
-**This is crucial:**
-
-```typescript
-ProductSet    // The row type — one entity instance
-ProductSet_   // The array type — the collection returned by queries
-```
-
-Each is **both a type AND a runtime value** (it's a class), which is why you can:
-
-- Use `ProductSet` directly as the handler target
-- Use `ProductSet` as a type annotation
-- Use `ProductSet_` to type the array returned by READ operations
-
-This **replaces your old `cds.entities('CDSService')` string-based lookup** with something fully typed.
-
-### Optional & Nullable Fields
-
-Notice the generated fields are **all optional and nullable**:
-
-```typescript
-interface ProductSet {
-  ProductId?: string | null
-  Price?: number | null
-  soldCount?: number | null
-  // ...
-}
-```
-
-<span style="background-color: #c8e6c9; padding: 2px 6px; border-radius: 3px;">*Why nullable:*</span> CAP is being **honest** — any field may be absent in a partial payload. Strict mode will make you respect that.
+Before you can safely type your CAP service handlers, you need **generated TypeScript interfaces** for your entities. This is where `cds-typer` comes in.
 
 ---
 
-## 4b. Rename and Convert CDSService.js
+## Prerequisites: Install cds-typer
 
-Rename the file:
+First, add the code generator to your project as a dev dependency:
 
 ```bash
-Rename-Item d:\solution_mycapapp_ts\srv\CDSService.js CDSService.ts
+npm install --save-dev @cap-js/cds-typer
 ```
 
 <sub>**code by anubhav trainings**</sub>
 
-Now replace the entire file with the fully-typed version:
+This installs the official SAP tool that generates TypeScript type definitions directly from your `.cds` data model.
+
+---
+
+## Generate Types from Your CDS Model
+
+Run the generator on your CDS schema files:
+
+```bash
+cds-typer "*"
+```
+
+<sub>**code by anubhav trainings**</sub>
+
+<div style="background-color: #f8bbd0; padding: 12px; border-radius: 4px; margin: 16px 0;">
+<strong>📍 What This Does:</strong> Scans all .cds files in your project and generates TypeScript interfaces for every entity, type, and aspect defined in your data model.
+</div>
+
+### Generated Output Structure
+
+This creates a folder (commonly at the project root):
+
+```
+@cds-models/
+├── index.d.ts
+├── CDSService/
+│   ├── index.d.ts
+│   ├── index.ts
+│   └── types.ts
+├── CatalogService/
+│   ├── index.d.ts
+│   ├── index.ts
+│   └── types.ts
+└── ...
+```
+
+<sub>**code by anubhav trainings**</sub>
+
+Each service folder contains:
+
+- **`index.d.ts`** — TypeScript type declaration files (pure types)
+- **`index.ts`** — Runtime definitions for entities (classes/interfaces)
+- **`types.ts`** — Helper type utilities
+
+These are **auto-generated** — don't edit them. When you update your `.cds` files, re-run `cds-typer "*"` to regenerate.
+
+---
+
+## The Flow: From CDS Model to Type-Safe Code
+
+<svg viewBox="0 0 600 500" xmlns="http://www.w3.org/2000/svg" style="max-width: 100%; height: auto; margin: 20px 0;">
+  <!-- Title -->
+  <text x="300" y="30" font-size="24" font-weight="bold" text-anchor="middle" fill="#1a1a1a">
+    CDS Model → Generated Types → Type-Safe Service Code
+  </text>
+
+  <!-- Step 1: CDS Model -->
+  <rect x="50" y="70" width="140" height="80" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" rx="4"/>
+  <text x="120" y="95" font-size="14" font-weight="bold" text-anchor="middle" fill="#1a1a1a">CDS Model</text>
+  <text x="120" y="115" font-size="12" text-anchor="middle" fill="#424242">db/schema.cds</text>
+  <text x="120" y="135" font-size="12" text-anchor="middle" fill="#424242">srv/**.cds</text>
+
+  <!-- Arrow 1 -->
+  <path d="M 190 110 L 230 110" stroke="#1976d2" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+
+  <!-- Step 2: cds-typer -->
+  <rect x="230" y="70" width="140" height="80" fill="#f3e5f5" stroke="#7b1fa2" stroke-width="2" rx="4"/>
+  <text x="300" y="95" font-size="14" font-weight="bold" text-anchor="middle" fill="#1a1a1a">cds-typer</text>
+  <text x="300" y="115" font-size="12" text-anchor="middle" fill="#424242">Code Generator</text>
+  <text x="300" y="135" font-size="11" text-anchor="middle" fill="#666">npm install --save-dev</text>
+
+  <!-- Arrow 2 -->
+  <path d="M 370 110 L 410 110" stroke="#7b1fa2" stroke-width="3" fill="none" marker-end="url(#arrowhead2)"/>
+
+  <!-- Step 3: Generated Types -->
+  <rect x="410" y="70" width="140" height="80" fill="#e8f5e9" stroke="#388e3c" stroke-width="2" rx="4"/>
+  <text x="480" y="95" font-size="14" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Generated Types</text>
+  <text x="480" y="115" font-size="12" text-anchor="middle" fill="#424242">@cds-models/</text>
+  <text x="480" y="135" font-size="11" text-anchor="middle" fill="#666">.ts & .d.ts files</text>
+
+  <!-- Arrow 3 (down) -->
+  <path d="M 480 150 L 480 190" stroke="#388e3c" stroke-width="3" fill="none" marker-end="url(#arrowhead3)"/>
+
+  <!-- Step 4: Type-Safe Service Code -->
+  <rect x="350" y="190" width="260" height="120" fill="#fff3e0" stroke="#f57c00" stroke-width="2" rx="4"/>
+  <text x="480" y="220" font-size="14" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Type-Safe Service Code</text>
+  
+  <!-- Step 4a -->
+  <rect x="370" y="240" width="100" height="50" fill="#fce4ec" stroke="#c2185b" stroke-width="1" rx="3"/>
+  <text x="420" y="260" font-size="11" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Step 1–2</text>
+  <text x="420" y="275" font-size="10" text-anchor="middle" fill="#666">Setup & Utils</text>
+
+  <!-- Step 4b -->
+  <rect x="490" y="240" width="100" height="50" fill="#e0f2f1" stroke="#00897b" stroke-width="1" rx="3"/>
+  <text x="540" y="260" font-size="11" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Step 3</text>
+  <text x="540" y="275" font-size="10" text-anchor="middle" fill="#666">Utility Handlers</text>
+
+  <!-- Step 4c -->
+  <rect x="370" y="310" width="100" height="50" fill="#ede7f6" stroke="#512da8" stroke-width="1" rx="3"/>
+  <text x="420" y="330" font-size="11" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Step 4</text>
+  <text x="420" y="345" font-size="10" text-anchor="middle" fill="#666">CDSService</text>
+
+  <!-- Step 4d -->
+  <rect x="490" y="310" width="100" height="50" fill="#f1f8e9" stroke="#689f38" stroke-width="1" rx="3"/>
+  <text x="540" y="330" font-size="11" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Step 5</text>
+  <text x="540" y="345" font-size="10" text-anchor="middle" fill="#666">CatalogService</text>
+
+  <!-- Arrow definitions -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#1976d2"/>
+    </marker>
+    <marker id="arrowhead2" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#7b1fa2"/>
+    </marker>
+    <marker id="arrowhead3" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#388e3c"/>
+    </marker>
+  </defs>
+
+  <!-- Bottom note -->
+  <text x="300" y="420" font-size="13" text-anchor="middle" fill="#555" font-style="italic">
+    Generated types feed into every CAP TypeScript migration step
+  </text>
+</svg>
+
+---
+
+## What Gets Generated: Entity Interfaces
+
+For every entity in your `.cds` schema, `cds-typer` creates **two types**:
+
+### Example: Your Books Entity
+
+**CDS Model (db/schema.cds):**
+
+```cds
+namespace sap.capire.bookshop;
+
+entity Books {
+  key ID      : Integer;
+      title   : String;
+      author  : String;
+      price   : Decimal;
+      stock   : Integer;
+      createdAt: Timestamp;
+}
+```
+
+<sub>**code by anubhav trainings**</sub>
+
+**Generated TypeScript (@cds-models/sap/capire/bookshop/index.ts):**
 
 ```typescript
-import cds from '@sap/cds'
-import { ProductSet, ItemsSet } from '#cds-models/CDSService'
-import { flattenPayload, project } from '../utils/payload-transformer'
-import { mapError } from '../utils/error-mapper'
+// Single row type
+export interface Books {
+  ID: number
+  title: string
+  author: string
+  price: number
+  stock: number
+  createdAt: Date
+}
 
-export default class CDSService extends cds.ApplicationService {
-  init() {
+// Array type (the collection)
+export class Books_ extends Array<Books> {
+  // runtime class that extends Array
+}
+```
 
-    this.before(['CREATE', 'UPDATE'], ProductSet, async (req) => {
-      console.log('Before CREATE/UPDATE ProductSet', req.data)
-    })
+<sub>**code by anubhav trainings**</sub>
 
-    this.before('READ', ProductSet, (req) => {
-      const query = req.http?.req?.query ?? {}
-      if ((query as Record<string, unknown>).simulateError === 'true') {
-        throw new Error('Simulated runtime error while reading ProductSet')
-      }
-      if ((query as Record<string, unknown>).simulateError === 'type') {
-        const broken = undefined as unknown as string
-        return broken.toUpperCase()   // intentional runtime TypeError (the demo)
-      }
-    })
+<div style="background-color: #f8bbd0; padding: 12px; border-radius: 4px; margin: 16px 0;">
+<strong>📍 Naming Convention:</strong>
+<br/>
+<strong>Books</strong> = single row (interface)
+<br/>
+<strong>Books_</strong> = the array (with trailing underscore)
+</div>
 
-    this.after('READ', ProductSet, async (productSet, req) => {
-      const rows = project(flattenPayload(productSet), ['ProductId', 'Description', 'Price'])
-      console.log('After READ ProductSet', rows)
+---
 
-      const ids = productSet.map(p => p.ProductId)
+## Add to .gitignore
 
-      const partnerCount = await SELECT.from(ItemsSet)
-        .columns('ProductId', { func: 'count', as: 'count' })
-        .where({ ProductId: { in: ids } })
-        .groupBy('ProductId') as Array<{ ProductId: string; count: number }>
+The `@cds-models/` folder is **regenerated** every time you run `cds-typer`, so add it to your `.gitignore`:
 
-      for (const p of productSet) {
-        const partner = partnerCount.find(pc => pc.ProductId === p.ProductId)
-        p.soldCount = partner ? partner.count : 0
-      }
-    })
+```gitignore
+@cds-models/
+node_modules/
+dist/
+```
 
-    this.before(['CREATE', 'UPDATE'], ItemsSet, async (req) => {
-      console.log('Before CREATE/UPDATE ItemsSet', req.data)
-    })
+<sub>**code by anubhav trainings**</sub>
 
-    this.after('READ', ItemsSet, async (itemsSet, req) => {
-      console.log('After READ ItemsSet', flattenPayload(itemsSet))
-    })
+This prevents committing auto-generated files. Teammates run `cds-typer "*"` locally after pulling.
 
-    this.on('error', (err, req) => {
-      const normalised = mapError(err)
-      console.error('CDSService error', normalised)
-      err.code = normalised.code
-      err.message = normalised.message
-    })
+---
 
-    return super.init()
+## When to Re-generate
+
+Re-run `cds-typer "*"` whenever you:
+
+- ✅ Add a new entity to your `.cds` files
+- ✅ Add fields to an existing entity
+- ✅ Change field types
+- ✅ Modify service definitions
+- ✅ Pull changes that modified `.cds` files
+
+**Pro tip:** Add this to your `package.json` scripts:
+
+```json
+{
+  "scripts": {
+    "build:types": "cds-typer \"*\"",
+    "build": "npm run build:types && cds build",
+    "watch": "npm run build:types && cds watch"
   }
 }
 ```
 
 <sub>**code by anubhav trainings**</sub>
 
----
-
-## 4c. The Concepts Behind Each Change
-
-### 1. require → import (and module.exports → export default)
-
-```typescript
-// ✅ NEW
-import cds from '@sap/cds'
-export default class CDSService extends cds.ApplicationService {
-  // ...
-}
-
-// ❌ OLD
-// const cds = require('@sap/cds')
-// module.exports = class CDSService ...
-```
-
-<sub>**code by anubhav trainings**</sub>
-
-This works because of **two things in your `tsconfig.json`:**
-
-- **`esModuleInterop: true`** — lets you default-import a CommonJS module (like `@sap/cds`)
-- **`paths` mapping** — points `@sap/cds` at SAP's type package `@cap-js/cds-types`
-
-`export default class` is the **SAP-recommended shape** for a service implementation — CAP's loader knows how to pick up the default export.
-
-### 2. Typed Entities Instead of String-Based Lookup
-
-```typescript
-// ✅ NEW — Typed imports from generated models
-import { ProductSet, ItemsSet } from '#cds-models/CDSService'
-
-// ❌ OLD — String-based, untyped
-// const { ProductSet, ItemsSet } = cds.entities('CDSService')
-```
-
-<sub>**code by anubhav trainings**</sub>
-
-This replaces the string-based lookup with direct imports.
-
-**The payoff:**
-
-```typescript
-this.after('READ', ProductSet, (productSet, req) => {
-  // productSet is now inferred as ProductSet_ (the array type) ✅
-  productSet.map(...)         // ✅ type-checked
-  const p = productSet[0]     // p is typed as ProductSet (single row)
-  p.ProductId                 // ✅ known field, type-safe
-})
-```
-
-The `#cds-models/...` is a **Node subpath import** (defined in your package.json `"imports"` field, which already exists). Now CAP's types can infer that `productSet` is a `ProductSet_` array — so `productSet.map()`, array access, and field access are all **fully type-checked** against the real entity shape.
-
-**That's the entire payoff of `cds-typer`.**
-
-### 3. Optional Chaining (?.) and Nullish Coalescing (??)
-
-```typescript
-const query = req.http?.req?.query ?? {}
-```
-
-<sub>**code by anubhav trainings**</sub>
-
-Replace your old conditional chaining:
-
-```typescript
-// ❌ OLD
-(req.http && req.http.req && req.http.req.query) || {}
-
-// ✅ NEW
-req.http?.req?.query ?? {}
-```
-
-<sub>**code by anubhav trainings**</sub>
-
-**How it works:**
-
-- **`?.` (optional chaining)** — safely short-circuits to `undefined` if any step is undefined/null, instead of throwing
-- **`?? {}` (nullish coalescing)** — supplies a fallback only if the left side is `null` or `undefined` (not falsy values like `0` or `''`)
-
-This is the **type-safe rewrite** of the old nested conditionals.
-
-##### <span style="background-color: #c8e6c9; padding: 2px 6px; border-radius: 3px;">*When to use ?? vs ||*</span>
-
-```typescript
-query ?? {}          // ✅ use ?? for null-coalescing (intended fallback)
-query || {}          // ❌ would also trigger on query === 0, '', false
-```
-
-### 4. Type Assertion on Query Parameters
-
-```typescript
-const query = req.http?.req?.query ?? {}
-if ((query as Record<string, unknown>).simulateError === 'true') {
-  // ...
-}
-```
-
-<sub>**code by anubhav trainings**</sub>
-
-The Express query type doesn't have a `simulateError` property, so reading it directly fails type checking.
-
-We assert it to the familiar `Record<string, unknown>` (your Step 3 friend) to read an arbitrary key:
-
-```typescript
-(query as Record<string, unknown>).simulateError
-```
-
-Now TypeScript allows the property access.
-
-### 5. Double Assertion: Intentional Deliberate Bug
-
-```typescript
-if ((query as Record<string, unknown>).simulateError === 'type') {
-  const broken = undefined as unknown as string
-  return broken.toUpperCase()   // ← intentional runtime TypeError
-}
-```
-
-<sub>**code by anubhav trainings**</sub>
-
-<div style="background-color: #f8bbd0; padding: 12px; border-radius: 4px; margin: 16px 0;">
-<strong>📍 Learning Pattern:</strong> This is an escape hatch. Double assertion is usually a code smell — recognize it, and know it's a red flag.
-</div>
-
-**What's happening:**
-
-- `undefined as unknown as string` is a **double assertion**
-- TypeScript normally rejects assigning `undefined` to `string` at compile time
-- The double assertion bypasses that check: `undefined` → (unknown) → `string`
-- Then calling `.toUpperCase()` on `undefined` **throws a runtime TypeError** — the whole point of this demo
-
-The reason: **to show error handling in action.** Good code never uses double assertions; this one deliberately violates type safety to demonstrate the error handler catching a real bug.
-
-##### <span style="background-color: #c8e6c9; padding: 2px 6px; border-radius: 3px;">*When Double Assertions Are Legitimate*</span>
-
-Almost never. Recognize the pattern, know it's usually a code smell, and refactor away from it. Here it's justified because the runtime error is the educational point.
-
-### 6. Type Assertion on Query Result
-
-```typescript
-const partnerCount = await SELECT.from(ItemsSet)
-  .columns('ProductId', { func: 'count', as: 'count' })
-  .where({ ProductId: { in: ids } })
-  .groupBy('ProductId') as Array<{ ProductId: string; count: number }>
-```
-
-<sub>**code by anubhav trainings**</sub>
-
-**Why the assertion?**
-
-The **CDS Query Language** (`SELECT ... .columns(...)`) builds columns dynamically at runtime, so the TypeScript compiler can't know the exact shape returned.
-
-You assert the shape you **know you asked for**:
-
-```typescript
-as Array<{ ProductId: string; count: number }>
-```
-
-Now `partner.count` type-checks. This is the **standard, accepted way** to type a custom-projection query result.
-
-##### <span style="background-color: #c8e6c9; padding: 2px 6px; border-radius: 3px;">*Custom Projections Always Need as*</span>
-
-When you use `SELECT ... .columns(custom, fields)`, TypeScript loses track of the exact return type. Assert the shape you intend.
+Now `npm run build` and `npm run watch` will regenerate types first.
 
 ---
 
-## 4d. Two Friction Points You Might Still Hit
+## How This Connects to Your Migration
 
-### Issue 1: err.code Property Not Found
+Once types are generated, you can:
 
-Depending on how `cds-types` types `err`, TypeScript may say:
+1. **Step 1–2** — Set up TypeScript tooling (tsconfig, typescript, dev dependencies)
+2. **Step 3** — Migrate utility files (`error-mapper.ts`, `payload-transformer.ts`)
+3. **Step 4** — Migrate `CDSService.ts` **using the generated entity types**
+4. **Step 5** — Migrate `CatalogService.ts` **using the generated action/function types**
 
-```
-Property 'code' does not exist on type 'Error'
-```
-
-**Fix:**
-
-```typescript
-const e = err as { code?: string; message?: string }
-e.code = normalised.code
-e.message = normalised.message
-```
-
-<sub>**code by anubhav trainings**</sub>
-
-This asserts `err` to a shape with optional `code` and `message` properties, so the assignment is type-safe.
-
-### Issue 2: productSet Inferred as Single Row, Not Array
-
-If type inference gives you a single-row type instead of the array, explicitly annotate the parameter:
-
-```typescript
-// ❌ Without annotation (might infer single ProductSet):
-this.after('READ', ProductSet, async (productSet, req) => {
-
-// ✅ With annotation (explicit ProductSet_):
-this.after('READ', ProductSet, async (productSet: ProductSet_, req) => {
-```
-
-<sub>**code by anubhav trainings**</sub>
-
-Make sure you import `ProductSet_` alongside `ProductSet`:
-
-```typescript
-import { ProductSet, ProductSet_, ItemsSet } from '#cds-models/CDSService'
-```
-
-<sub>**code by anubhav trainings**</sub>
+<span style="background-color: #c8e6c9; padding: 2px 6px; border-radius: 3px;">*The generated types are the bridge:*</span> they translate your data model into TypeScript so your service handlers can be fully type-safe.
 
 ---
 
-## 4e. Verify Everything
+## Next Steps
 
-Run the type checker and tests:
+Once `cds-typer` has generated your types:
 
-```bash
-npx tsc --noEmit
-npm test
-```
+1. ✅ Verify `@cds-models/` folder exists
+2. ✅ Check that it contains `.ts` and `.d.ts` files for your services
+3. ✅ Start **Step 1** of the main migration guide
 
-<sub>**code by anubhav trainings**</sub>
-
-**Expected results:**
-
-- ✅ `tsc --noEmit` should be **clean** for:
-  - `CDSService.ts` (newly migrated)
-  - `utils/error-mapper.ts` (from Step 2)
-  - `utils/payload-transformer.ts` (from Step 3)
-
-- ✅ `npm test` should be **all green**:
-  - The two `CatalogService` tests still exercise `CatalogService.js` (still plain JS)
-  - They're ignored by `tsc` since `allowJs: false` by default
-  - They should stay green — runtime logic is unchanged
-
----
-
-## Troubleshooting
-
-<div style="background-color: #f8bbd0; padding: 12px; border-radius: 4px; margin: 16px 0;">
-<strong>📍 Normal Friction Points:</strong> This file has the most type friction of anything so far. Expect to hit one or two of the spots in 4d — that's normal.
-</div>
-
-### Common Errors & Fixes
-
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `Property 'code' does not exist on type...` | Error type doesn't have custom properties | Wrap with `as { code?: string; ... }` |
-| `productSet is not an array` | Type inference inferred single row | Add explicit `: ProductSet_` annotation |
-| `Property 'ProductId' does not exist` | Using single row type instead of array | Use `ProductSet_` instead of `ProductSet` |
-| `Cannot read properties of undefined` | Optional field accessed without null-check | Use optional chaining: `p?.ProductId` |
-
-### Debugging Type Inference
-
-To see what TypeScript inferred as a type, **hover over the variable in VS Code** — the tooltip shows the inferred type.
-
-If it says `ProductSet` instead of `ProductSet_`, that's the Issue #2 from 4d — add the explicit annotation.
-
----
-
-## What You've Accomplished
-
-After completing 4a–4e, you've:
-
-✅ **Learned the naming rule** — `ProductSet` vs `ProductSet_`
-
-✅ **Migrated to ES imports** — fully leveraging type inference
-
-✅ **Typed entity handlers** — `this.after('READ', ProductSet, ...)` now type-checks the array
-
-✅ **Used type assertions** — for dynamic queries and unsafe patterns
-
-✅ **Navigated strict mode friction** — optional chaining, nullish coalescing, type guards
-
-✅ **Integrated your utility functions** — `flattenPayload` and `project` work with typed data
-
----
-
-## Next: Checkpoint Questions
-
-After completing 4b–4e, answer these:
-
-1. **Is `tsc --noEmit` clean for all three files?**
-2. **Do all tests still pass?**
-3. **Any TS errors you can't resolve?**
-
----
-
-## What's Next
-
-**Step 5 — CatalogService.ts** covers:
-
-- Actions and functions (not just READ/CREATE/UPDATE)
-- CDS transaction typing (`cds.tx`)
-- More complex handler signatures
-
-Once CatalogService.ts is clean, **Step 6** flips `allowJs: false` for the final strict TypeScript-only state.
+You're now ready to begin the CAP TypeScript journey with complete type safety!
 
 ---
 
 <footer style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ccc; font-size: 12px; color: #666;">
-<strong>code by anubhav trainings</strong> — CAP TypeScript Step 4: CDSService Migration with Generated Types
+<strong>code by anubhav trainings</strong> — CAP TypeScript Prelude: cds-typer Setup & Generated Types
 </footer>
