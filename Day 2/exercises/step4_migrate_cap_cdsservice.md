@@ -64,80 +64,151 @@ These are **auto-generated** — don't edit them. When you update your `.cds` fi
 
 ## The Flow: From CDS Model to Type-Safe Code
 
-<svg viewBox="0 0 600 500" xmlns="http://www.w3.org/2000/svg" style="max-width: 100%; height: auto; margin: 20px 0;">
-  <!-- Title -->
-  <text x="300" y="30" font-size="24" font-weight="bold" text-anchor="middle" fill="#1a1a1a">
-    CDS Model → Generated Types → Type-Safe Service Code
-  </text>
-
-  <!-- Step 1: CDS Model -->
-  <rect x="50" y="70" width="140" height="80" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" rx="4"/>
-  <text x="120" y="95" font-size="14" font-weight="bold" text-anchor="middle" fill="#1a1a1a">CDS Model</text>
-  <text x="120" y="115" font-size="12" text-anchor="middle" fill="#424242">db/schema.cds</text>
-  <text x="120" y="135" font-size="12" text-anchor="middle" fill="#424242">srv/**.cds</text>
-
-  <!-- Arrow 1 -->
-  <path d="M 190 110 L 230 110" stroke="#1976d2" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
-
-  <!-- Step 2: cds-typer -->
-  <rect x="230" y="70" width="140" height="80" fill="#f3e5f5" stroke="#7b1fa2" stroke-width="2" rx="4"/>
-  <text x="300" y="95" font-size="14" font-weight="bold" text-anchor="middle" fill="#1a1a1a">cds-typer</text>
-  <text x="300" y="115" font-size="12" text-anchor="middle" fill="#424242">Code Generator</text>
-  <text x="300" y="135" font-size="11" text-anchor="middle" fill="#666">npm install --save-dev</text>
-
-  <!-- Arrow 2 -->
-  <path d="M 370 110 L 410 110" stroke="#7b1fa2" stroke-width="3" fill="none" marker-end="url(#arrowhead2)"/>
-
-  <!-- Step 3: Generated Types -->
-  <rect x="410" y="70" width="140" height="80" fill="#e8f5e9" stroke="#388e3c" stroke-width="2" rx="4"/>
-  <text x="480" y="95" font-size="14" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Generated Types</text>
-  <text x="480" y="115" font-size="12" text-anchor="middle" fill="#424242">@cds-models/</text>
-  <text x="480" y="135" font-size="11" text-anchor="middle" fill="#666">.ts & .d.ts files</text>
-
-  <!-- Arrow 3 (down) -->
-  <path d="M 480 150 L 480 190" stroke="#388e3c" stroke-width="3" fill="none" marker-end="url(#arrowhead3)"/>
-
-  <!-- Step 4: Type-Safe Service Code -->
-  <rect x="350" y="190" width="260" height="120" fill="#fff3e0" stroke="#f57c00" stroke-width="2" rx="4"/>
-  <text x="480" y="220" font-size="14" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Type-Safe Service Code</text>
-  
-  <!-- Step 4a -->
-  <rect x="370" y="240" width="100" height="50" fill="#fce4ec" stroke="#c2185b" stroke-width="1" rx="3"/>
-  <text x="420" y="260" font-size="11" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Step 1–2</text>
-  <text x="420" y="275" font-size="10" text-anchor="middle" fill="#666">Setup & Utils</text>
-
-  <!-- Step 4b -->
-  <rect x="490" y="240" width="100" height="50" fill="#e0f2f1" stroke="#00897b" stroke-width="1" rx="3"/>
-  <text x="540" y="260" font-size="11" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Step 3</text>
-  <text x="540" y="275" font-size="10" text-anchor="middle" fill="#666">Utility Handlers</text>
-
-  <!-- Step 4c -->
-  <rect x="370" y="310" width="100" height="50" fill="#ede7f6" stroke="#512da8" stroke-width="1" rx="3"/>
-  <text x="420" y="330" font-size="11" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Step 4</text>
-  <text x="420" y="345" font-size="10" text-anchor="middle" fill="#666">CDSService</text>
-
-  <!-- Step 4d -->
-  <rect x="490" y="310" width="100" height="50" fill="#f1f8e9" stroke="#689f38" stroke-width="1" rx="3"/>
-  <text x="540" y="330" font-size="11" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Step 5</text>
-  <text x="540" y="345" font-size="10" text-anchor="middle" fill="#666">CatalogService</text>
-
-  <!-- Arrow definitions -->
+<svg viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg" style="max-width: 100%; height: auto; margin: 20px 0; border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: #fafafa;">
   <defs>
-    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+    <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
       <polygon points="0 0, 10 3, 0 6" fill="#1976d2"/>
     </marker>
-    <marker id="arrowhead2" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+    <marker id="arrow-purple" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
       <polygon points="0 0, 10 3, 0 6" fill="#7b1fa2"/>
     </marker>
-    <marker id="arrowhead3" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+    <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
       <polygon points="0 0, 10 3, 0 6" fill="#388e3c"/>
     </marker>
+    <marker id="arrow-orange" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#f57c00"/>
+    </marker>
+    <linearGradient id="grad-blue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#e3f2fd;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#bbdefb;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad-purple" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f3e5f5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e1bee7;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad-green" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#e8f5e9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c8e6c9;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad-orange" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fff3e0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffe0b2;stop-opacity:1" />
+    </linearGradient>
   </defs>
 
-  <!-- Bottom note -->
-  <text x="300" y="420" font-size="13" text-anchor="middle" fill="#555" font-style="italic">
-    Generated types feed into every CAP TypeScript migration step
+  <!-- Title -->
+  <text x="450" y="35" font-size="20" font-weight="bold" text-anchor="middle" fill="#1a1a1a">
+    CAP TypeScript: cds-typer Pipeline
   </text>
+
+  <!-- PHASE 1: CDS Model -->
+  <rect x="20" y="70" width="160" height="110" fill="url(#grad-blue)" stroke="#1976d2" stroke-width="2" rx="6"/>
+  <text x="100" y="95" font-size="14" font-weight="bold" text-anchor="middle" fill="#0d47a1">📋 CDS Model</text>
+  <line x1="30" y1="105" x2="170" y2="105" stroke="#1976d2" stroke-width="1"/>
+  <text x="100" y="125" font-size="11" text-anchor="middle" fill="#1565c0">db/schema.cds</text>
+  <text x="100" y="140" font-size="11" text-anchor="middle" fill="#1565c0">srv/**.cds</text>
+  <text x="100" y="155" font-size="10" text-anchor="middle" fill="#1976d2" font-style="italic">Entity Definitions</text>
+
+  <!-- Arrow: CDS → cds-typer -->
+  <path d="M 180 125 L 220 125" stroke="#1976d2" stroke-width="3" fill="none" marker-end="url(#arrow-blue)"/>
+  <text x="200" y="115" font-size="10" fill="#1976d2" font-weight="bold" text-anchor="middle">scan</text>
+
+  <!-- PHASE 2: cds-typer -->
+  <rect x="220" y="70" width="160" height="110" fill="url(#grad-purple)" stroke="#7b1fa2" stroke-width="2" rx="6"/>
+  <text x="300" y="95" font-size="14" font-weight="bold" text-anchor="middle" fill="#4a148c">⚙️ cds-typer</text>
+  <line x1="230" y1="105" x2="410" y2="105" stroke="#7b1fa2" stroke-width="1"/>
+  <text x="300" y="125" font-size="11" text-anchor="middle" fill="#6a1b9a">Code Generator</text>
+  <text x="300" y="140" font-size="10" text-anchor="middle" fill="#7b1fa2">npm install</text>
+  <text x="300" y="152" font-size="10" text-anchor="middle" fill="#7b1fa2">--save-dev</text>
+
+  <!-- Arrow: cds-typer → Generated Types -->
+  <path d="M 380 125 L 420 125" stroke="#7b1fa2" stroke-width="3" fill="none" marker-end="url(#arrow-purple)"/>
+  <text x="400" y="115" font-size="10" fill="#7b1fa2" font-weight="bold" text-anchor="middle">generate</text>
+
+  <!-- PHASE 3: Generated Types -->
+  <rect x="420" y="70" width="160" height="110" fill="url(#grad-green)" stroke="#388e3c" stroke-width="2" rx="6"/>
+  <text x="500" y="95" font-size="14" font-weight="bold" text-anchor="middle" fill="#1b5e20">✨ Generated Types</text>
+  <line x1="430" y1="105" x2="590" y2="105" stroke="#388e3c" stroke-width="1"/>
+  <text x="500" y="125" font-size="11" text-anchor="middle" fill="#2e7d32">@cds-models/</text>
+  <text x="500" y="140" font-size="10" text-anchor="middle" fill="#388e3c">.ts & .d.ts files</text>
+  <text x="500" y="155" font-size="10" text-anchor="middle" fill="#388e3c" font-style="italic">ProductSet, Books_</text>
+
+  <!-- Arrow: Generated Types → Type-Safe Code -->
+  <path d="M 620 130 L 700 130 L 700 220" stroke="#388e3c" stroke-width="3" fill="none" marker-end="url(#arrow-green)"/>
+  <text x="660" y="120" font-size="10" fill="#388e3c" font-weight="bold" text-anchor="middle">enable</text>
+
+  <!-- PHASE 4: Type-Safe Service Code Container -->
+  <rect x="20" y="220" width="820" height="340" fill="#fff9f5" stroke="#f57c00" stroke-width="3" rx="8" stroke-dasharray="5,5"/>
+  <text x="430" y="245" font-size="15" font-weight="bold" text-anchor="middle" fill="#e65100">🔒 Type-Safe CAP Service Code</text>
+  <text x="430" y="262" font-size="11" text-anchor="middle" fill="#bf360c" font-style="italic">Generated types feed into all migration steps</text>
+
+  <!-- Connection lines from generated types to steps -->
+  <path d="M 500 180 L 500 200" stroke="#388e3c" stroke-width="2" stroke-dasharray="3,3" fill="none"/>
+  
+  <!-- Step 1-2: Setup & Utils -->
+  <rect x="40" y="280" width="140" height="90" fill="#fce4ec" stroke="#c2185b" stroke-width="2" rx="5"/>
+  <text x="110" y="305" font-size="13" font-weight="bold" text-anchor="middle" fill="#880e4f">Step 1–2</text>
+  <line x1="50" y1="315" x2="170" y2="315" stroke="#c2185b" stroke-width="1"/>
+  <text x="110" y="335" font-size="11" text-anchor="middle" fill="#c2185b">TypeScript Setup</text>
+  <text x="110" y="352" font-size="10" text-anchor="middle" fill="#ad1457">tsconfig.json</text>
+  <text x="110" y="365" font-size="10" text-anchor="middle" fill="#ad1457">Dependencies</text>
+
+  <!-- Step 3: Utility Handlers -->
+  <rect x="210" y="280" width="140" height="90" fill="#e0f2f1" stroke="#00897b" stroke-width="2" rx="5"/>
+  <text x="280" y="305" font-size="13" font-weight="bold" text-anchor="middle" fill="#004d40">Step 3</text>
+  <line x1="220" y1="315" x2="340" y2="315" stroke="#00897b" stroke-width="1"/>
+  <text x="280" y="335" font-size="11" text-anchor="middle" fill="#00897b">Utility Handlers</text>
+  <text x="280" y="352" font-size="10" text-anchor="middle" fill="#00695c">error-mapper.ts</text>
+  <text x="280" y="365" font-size="10" text-anchor="middle" fill="#00695c">payload-transformer.ts</text>
+
+  <!-- Step 4: CDSService -->
+  <rect x="380" y="280" width="140" height="90" fill="#ede7f6" stroke="#512da8" stroke-width="2" rx="5"/>
+  <text x="450" y="305" font-size="13" font-weight="bold" text-anchor="middle" fill="#311b92">Step 4</text>
+  <line x1="390" y1="315" x2="510" y2="315" stroke="#512da8" stroke-width="1"/>
+  <text x="450" y="335" font-size="11" text-anchor="middle" fill="#512da8">CDSService</text>
+  <text x="450" y="352" font-size="10" text-anchor="middle" fill="#4527a0">Uses: ProductSet</text>
+  <text x="450" y="365" font-size="10" text-anchor="middle" fill="#4527a0">ProductSet_</text>
+
+  <!-- Step 5: CatalogService -->
+  <rect x="550" y="280" width="140" height="90" fill="#f1f8e9" stroke="#689f38" stroke-width="2" rx="5"/>
+  <text x="620" y="305" font-size="13" font-weight="bold" text-anchor="middle" fill="#33691e">Step 5</text>
+  <line x1="560" y1="315" x2="680" y2="315" stroke="#689f38" stroke-width="1"/>
+  <text x="620" y="335" font-size="11" text-anchor="middle" fill="#689f38">CatalogService</text>
+  <text x="620" y="352" font-size="10" text-anchor="middle" fill="#558b2f">Actions</text>
+  <text x="620" y="365" font-size="10" text-anchor="middle" fill="#558b2f">Functions</text>
+
+  <!-- Step 6: Final State -->
+  <rect x="720" y="280" width="100" height="90" fill="#e8eaf6" stroke="#3949ab" stroke-width="2" rx="5"/>
+  <text x="770" y="305" font-size="13" font-weight="bold" text-anchor="middle" fill="#1a237e">Step 6</text>
+  <line x1="730" y1="315" x2="810" y2="315" stroke="#3949ab" stroke-width="1"/>
+  <text x="770" y="335" font-size="11" text-anchor="middle" fill="#3949ab">Full TypeScript</text>
+  <text x="770" y="352" font-size="10" text-anchor="middle" fill="#283593">allowJs:</text>
+  <text x="770" y="365" font-size="10" text-anchor="middle" fill="#283593">false</text>
+
+  <!-- Connection arrows between steps -->
+  <path d="M 180 325 L 210 325" stroke="#9e9e9e" stroke-width="2" fill="none" marker-end="url(#arrow-blue)"/>
+  <path d="M 350 325 L 380 325" stroke="#9e9e9e" stroke-width="2" fill="none" marker-end="url(#arrow-blue)"/>
+  <path d="M 520 325 L 550 325" stroke="#9e9e9e" stroke-width="2" fill="none" marker-end="url(#arrow-blue)"/>
+  <path d="M 690 325 L 720 325" stroke="#9e9e9e" stroke-width="2" fill="none" marker-end="url(#arrow-blue)"/>
+
+  <!-- Bottom explanation box -->
+  <rect x="40" y="400" width="740" height="130" fill="#f5f5f5" stroke="#757575" stroke-width="1" rx="4"/>
+  <text x="410" y="425" font-size="12" font-weight="bold" text-anchor="middle" fill="#212121">✅ What Happens at Each Step</text>
+  
+  <text x="50" y="450" font-size="10" font-weight="bold" fill="#1565c0">Steps 1–2:</text>
+  <text x="140" y="450" font-size="10" fill="#424242">Set up TypeScript tooling, tsconfig.json, dev dependencies</text>
+  
+  <text x="50" y="470" font-size="10" font-weight="bold" fill="#00695c">Step 3:</text>
+  <text x="140" y="470" font-size="10" fill="#424242">Migrate utility functions with Record&lt;string, unknown&gt;, unions, generics</text>
+  
+  <text x="50" y="490" font-size="10" font-weight="bold" fill="#4527a0">Step 4:</text>
+  <text x="140" y="490" font-size="10" fill="#424242">Use generated entity types (ProductSet, ProductSet_) in CDSService handlers</text>
+  
+  <text x="50" y="510" font-size="10" font-weight="bold" fill="#558b2f">Step 5:</text>
+  <text x="140" y="510" font-size="10" fill="#424242">Type actions, functions, and CDS transactions (cds.tx)</text>
+  
+  <text x="50" y="530" font-size="10" font-weight="bold" fill="#283593">Step 6:</text>
+  <text x="140" y="530" font-size="10" fill="#424242">Set allowJs: false for 100% TypeScript compliance</text>
 </svg>
 
 ---
