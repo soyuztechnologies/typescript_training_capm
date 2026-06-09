@@ -144,7 +144,22 @@ These are **auto-generated** — don't edit them. When you update your `.cds` fi
 
 ## What Gets Generated: Entity Interfaces
 
-For every entity in your `.cds` schema, `cds-typer` creates **two types**:
+For every entity in your `.cds` schema, `cds-typer` creates **two types** — this naming rule is **the single most important thing** to understand:
+
+| Generated Name | Meaning | Example Use |
+|---|---|---|
+| `ProductSet` | One row (singular) | A single product object |
+| `ProductSet_` (trailing `_`) | The collection — extends `Array<ProductSet>` | The array a READ returns |
+
+### Why Two Types?
+
+Each is **both a type AND a runtime value** (it's a class), which is why you can:
+
+- Use `ProductSet` directly as the handler target
+- Use `ProductSet` as a type annotation
+- Use `ProductSet_` to type the array returned by queries
+
+This **replaces your old `cds.entities('CDSService')` string-based lookup** with something fully typed and type-checkable.
 
 ### Example: Your Books Entity
 
@@ -168,7 +183,7 @@ entity Books {
 **Generated TypeScript (@cds-models/sap/capire/bookshop/index.ts):**
 
 ```typescript
-// Single row type
+// Single row type — one entity instance
 export interface Books {
   ID: number
   title: string
@@ -178,25 +193,159 @@ export interface Books {
   createdAt: Date
 }
 
-// Array type (the collection)
+// Array type — the collection (extends Array<Books>)
 export class Books_ extends Array<Books> {
-  // runtime class that extends Array
+  // runtime class for the collection
 }
 ```
 
 <sub>**code by anubhav trainings**</sub>
 
+### Optional & Nullable Fields
+
+Notice fields are **optional and nullable**:
+
+```typescript
+interface Books {
+  ID?: number | null
+  title?: string | null
+  price?: number | null
+  // ...
+}
+```
+
+<span style="background-color: #c8e6c9; padding: 2px 6px; border-radius: 3px;">*Why nullable:*</span> CAP is being **honest** — any field may be absent in a partial payload (e.g., during a CREATE that doesn't include all fields). **Strict mode will make you respect that.**
+
+### How This Works in Service Handlers
+
+Once you have these types, you can write type-safe handlers:
+
+```typescript
+import { Books, Books_ } from '#cds-models/sap/capire/bookshop'
+import cds from '@sap/cds'
+
+export default class BookService extends cds.ApplicationService {
+  init() {
+    // Handler receives Books_ (the array)
+    this.after('READ', Books, async (books: Books_, req) => {
+      // books is an array of Books ✅ type-checked
+      books.map(book => {
+        book.title        // ✅ known field
+        book.price        // ✅ known field, number | null
+        book.unknownField // ❌ ERROR — not in schema
+      })
+    })
+
+    return super.init()
+  }
+}
+```
+
+<sub>**code by anubhav trainings**</sub>
+
+---
+
+## The Naming Rule: Critical for Success
+
 <div style="background-color: #f8bbd0; padding: 12px; border-radius: 4px; margin: 16px 0;">
-<strong>📍 Naming Convention:</strong>
+<strong>📍 CRITICAL:</strong> This is the single most important thing. Memorize it.
 <br/>
-<strong>Books</strong> = single row (interface)
 <br/>
-<strong>Books_</strong> = the array (with trailing underscore)
+<strong>ProductSet</strong> = the row type (singular entity)
+<br/>
+<strong>ProductSet_</strong> = the array type (with trailing underscore)
+<br/>
+<br/>
+When you see a compilation error about "not an array," you're probably using ProductSet instead of ProductSet_. Switch the underscore.
 </div>
 
 ---
 
-## Add to .gitignore
+## From String-Based Lookups to Type-Safe Handlers
+
+### Before: Plain JavaScript (Untyped)
+
+```javascript
+const cds = require('@sap/cds')
+
+module.exports = class CDSService extends cds.ApplicationService {
+  init() {
+    // String-based lookup — completely untyped
+    const { ProductSet, ItemsSet } = cds.entities('CDSService')
+
+    this.after('READ', ProductSet, async (productSet, req) => {
+      // TypeScript doesn't know:
+      // - Is productSet an array or a single object?
+      // - What fields does ProductSet have?
+      // - Is productSet.map() allowed?
+      productSet.map(p => {
+        p.ProductId  // Maybe exists, maybe not — no type checking
+        p.unknown    // Typo? No way to know at compile time
+      })
+    })
+
+    return super.init()
+  }
+}
+```
+
+<sub>**code by anubhav trainings**</sub>
+
+### After: TypeScript with Generated Types (Fully Typed)
+
+```typescript
+import cds from '@sap/cds'
+import { ProductSet, ProductSet_ } from '#cds-models/CDSService'
+
+export default class CDSService extends cds.ApplicationService {
+  init() {
+    // Imported directly from generated models — fully typed
+    this.after('READ', ProductSet, async (productSet: ProductSet_, req) => {
+      // TypeScript now knows:
+      // ✅ productSet is definitely ProductSet_ (an array)
+      // ✅ I can call .map() on it
+      // ✅ Each item is a ProductSet (single row)
+      // ✅ Only known fields are accessible
+      
+      productSet.map(p => {
+        p.ProductId       // ✅ Field exists in schema
+        p.unknown         // ❌ ERROR — not in schema, caught at compile time
+      })
+    })
+
+    return super.init()
+  }
+}
+```
+
+<sub>**code by anubhav trainings**</sub>
+
+### The Transformation
+
+| Aspect | Before (String-based) | After (Generated Types) |
+|--------|---------------------|------------------------|
+| **Lookup** | `cds.entities('CDSService')` | `import { ProductSet } from '#cds-models/CDSService'` |
+| **Type Info** | None — runtime untyped | Complete — compile-time checked |
+| **Field Access** | `p.anything` — no validation | `p.ProductId` — only schema fields allowed |
+| **Array vs Single** | Unclear without docs | Clear: `ProductSet_` for arrays, `ProductSet` for rows |
+| **Typos** | Only caught at runtime | Caught at compile time ✅ |
+| **IDE Intellisense** | Limited or none | Full autocomplete with field names & types |
+
+---
+
+## How This Enables Step 4: CDSService Migration
+
+Once generated types exist, Step 4 becomes possible:
+
+1. **Handlers use generated entity types** — `import { ProductSet, ProductSet_ } from '#cds-models/CDSService'`
+2. **Service methods receive typed parameters** — `async (productSet: ProductSet_, req) => { ... }`
+3. **Field access is type-checked** — `p.ProductId` is validated against the schema
+4. **CAP's query API becomes typed** — `SELECT.from(ProductSet)` returns `ProductSet_` array
+5. **Your utility functions work with typed data** — `flattenPayload(productSet)` receives a properly typed array
+
+**Without generated types, none of this is possible.** Generated types are the foundation.
+
+---
 
 The `@cds-models/` folder is **regenerated** every time you run `cds-typer`, so add it to your `.gitignore`:
 
