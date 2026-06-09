@@ -1,4 +1,4 @@
-# Step 7 — Build & Deploy a TypeScript CAP Project
+# Step 9 — Build & Deploy a TypeScript CAP Project
 
 > For deployment you do **not** ship `tsx`-on-the-fly. The recommended path is to
 > compile `.ts` → `.js` as a build step and deploy the JavaScript.
