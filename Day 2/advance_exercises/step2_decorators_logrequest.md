@@ -1,18 +1,20 @@
 # Step 2 — Decorators: A `@LogRequest` Method Decorator
 
 > Writing a **reusable** decorator that wraps any method to log its **name**, its
-> **arguments**, and its **execution time** — then applying it to a **mock CAP handler
-> class** in `srv/exercises/cap-handler.ts`. CAP handlers are `async`, so the decorator
-> must also time work that finishes *after* the function returns.
-> This is cross-cutting behaviour (logging, timing) written **once** and reused **everywhere**.
+> **arguments**, and its **execution time** — then applying it to the **real
+> `srv/CatalogService.ts`** so its `boost` and `largestOrder` actions log automatically.
+> CAP handlers are `async`, so the decorator must also time work that finishes *after* the
+> function returns. This is cross-cutting behaviour (logging, timing) written **once** and
+> reused **everywhere**.
 
 ---
 
 ## 🎯 What You Will Build
 
-A single `@LogRequest` you can stack above any method. Decorate `boost` and `largestOrder`
-on a mock handler, run them, and watch the console print the call, the args, and the elapsed
-milliseconds — **without editing the method bodies**.
+A single `@LogRequest` you can stack above any method. You'll keep the decorator in
+`srv/exercises/cap-handler.ts`, then **import it into `srv/CatalogService.ts`** and decorate
+the `boost` and `largestOrder` action handlers — so every time CAP runs them, the console
+prints the call, the args, and the elapsed milliseconds, **without changing what they do**.
 
 ---
 
@@ -29,6 +31,7 @@ milliseconds — **without editing the method bodies**.
 | 7 | **Async timing** | `result instanceof Promise ? result.finally(…)` | stop the clock *after* the promise settles |
 | 8 | **Apply it** | `@LogRequest` above the method | the `@` attaches the decorator at class definition |
 | 9 | **Native decorators** | *(no `experimentalDecorators`)* | this project uses **TC39 Stage 3**, not legacy |
+| 10 | **Decorate a method, register by reference** | `this.on('boost', (req) => this.boost(req))` | decorators attach to class **methods**, not inline arrow handlers |
 
 ---
 
@@ -53,8 +56,8 @@ Type it with generics so the wrapper stays as type-safe as the method it wraps (
 Step 1's generics).
 
 ```ts
-// srv/exercises/cap-handler.ts
-function LogRequest<This, Args extends unknown[], Return>(
+// srv/exercises/cap-handler.ts — home of the reusable decorator
+export function LogRequest<This, Args extends unknown[], Return>(
   originalMethod: (this: This, ...args: Args) => Return,
   context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Return>
 ) {
@@ -159,77 +162,152 @@ running when the line below it executes. Stop the clock *after* it settles.
 
 ---
 
-## Step 2.6 — Build the Mock CAP Handler and Apply `@LogRequest`
+## Step 2.6 — Why You Can't Decorate the Inline Handlers
 
-A small class that imitates the `CatalogService` actions — one `async`, one sync — each
-decorated with `@LogRequest`.
+In `CatalogService`, the actions are registered as **inline arrow functions**:
+`this.on('boost', async (req) => { … })`. A decorator has nothing to attach to there —
+Stage 3 decorators only apply to **class members** (methods, fields, accessors), never to a
+function passed as an argument. So the first move is to turn each handler into a **named
+method**, then register that method.
 
+> [!CAUTION]
+> **`@LogRequest` above `this.on('boost', async (req) => …)` is a syntax error** — there is
+> no method to decorate. The fix is a tiny, behaviour-preserving refactor: move the handler
+> body into a method `boost(req)`, decorate the **method**, and register it **by reference**
+> (row 10). You've only given the function a name and a home.
+
+---
+
+## Step 2.7 — Extract the Handlers Into Decorated Methods
+
+Refactor `boost` and `largestOrder` from inline handlers into decorated class methods.
+
+**Before — inline arrow handlers (inside `init()`):**
 ```ts
-class CatalogHandler {
-  @LogRequest                                            // row 8
-  async boost(orderId: string): Promise<string> {
-    await new Promise((resolve) => setTimeout(resolve, 50))   // pretend DB work
-    return `Order ${orderId} boosted`
+this.on('boost', async (req) => {
+  try {
+    const ID = req.params[0]
+    // … boost logic …
+  } catch (error) {
+    return 'Error ' + String(error)
   }
+})
 
-  @LogRequest                                            // row 8
-  largestOrder(): { ID: number; GROSS_AMOUNT: number } {
-    return { ID: 1, GROSS_AMOUNT: 99999 }
+this.on('largestOrder', async (req) => {
+  // … largestOrder logic …
+})
+```
+
+<sub>code by anubhav trainings</sub>
+
+**After — register by reference, define decorated methods:**
+```ts
+import { LogRequest } from './exercises/cap-handler'      // at the top of CatalogService.ts
+
+// inside init():
+this.on('boost', (req) => this.boost(req))                // row 10
+this.on('largestOrder', (req) => this.largestOrder(req))  // row 10
+
+// as class methods (siblings of init()):
+@LogRequest                                               // row 8
+async boost(req: cds.Request) {
+  try {
+    const ID = req.params[0]
+    // … same boost logic, unchanged …
+  } catch (error) {
+    return 'Error ' + String(error)
   }
+}
+
+@LogRequest                                               // row 8
+async largestOrder(req: cds.Request) {
+  // … same largestOrder logic, unchanged …
 }
 ```
 
 <sub>code by anubhav trainings</sub>
 
 > [!TIP]
-> *Concept — `@LogRequest` on the line above a method (row 8) attaches the decorator when the class is **defined**, not when the method is called. From then on every call to `boost` or `largestOrder` flows through your wrapper. The method bodies are untouched — that is the power of decorators: cross-cutting concerns (logging, timing, auth) added **without editing the logic**.*
+> *Concept — `this.on('boost', (req) => this.boost(req))` is a thin forwarding arrow: it keeps `this` bound to the service and calls `this.boost`, which is now the **wrapped (logging)** version (rows 8, 10). The method bodies are copied **verbatim** from the old inline handlers — only their location changed, plus a `req: cds.Request` annotation (a standalone method must type its own parameters; an inline handler had it inferred).*
 
 > [!CAUTION]
 > **`@LogRequest`, not `@LogRequest()`.** Because our decorator takes `(method, context)`
-> directly, you apply it **bare**: `@LogRequest`. The `@LogRequest()` *call* form is only for
+> directly, apply it **bare**: `@LogRequest`. The `@LogRequest()` *call* form is only for
 > **decorator factories** — functions that take options and *return* a decorator (e.g.
 > `@LogRequest({ level: 'debug' })`). Mixing them up is a common first error.
 
 ---
 
-## Step 2.7 — Run and Observe
+## Step 2.8 — Make the Logging CAP-Safe
+
+> [!CAUTION]
+> **A CAP `req` is a circular object** (it references its own context and transaction), so
+> the `JSON.stringify(args)` from Step 2.3 **throws** *"Converting circular structure to
+> JSON"* the instant you log it — which would crash the handler. Guard the stringify so the
+> decorator can never break the request it is only meant to observe.
 
 ```ts
-const handler = new CatalogHandler()
-
-void (async () => {
-  await handler.boost('PO-1000')   // → boost("PO-1000")  … ← boost finished in ~50ms
-  handler.largestOrder()           // → largestOrder()     … ← largestOrder finished in ~0ms
-})()
+// add to srv/exercises/cap-handler.ts
+function safeArgs(args: unknown[]): string {
+  try {
+    return JSON.stringify(args)
+  } catch {
+    return '[args not serializable]'        // CAP req is circular — don't crash on it
+  }
+}
 ```
 
+<sub>code by anubhav trainings</sub>
+
+Then use `safeArgs(args)` in place of `JSON.stringify(args)` inside the replacement function.
+
+> [!TIP]
+> *Concept — this keeps the decorator **generic** (it still knows nothing about CAP). For readable CAP output you could log the meaningful parts instead — e.g. the event name via `(args[0] as cds.Request)?.event`. For this exercise the safe fallback is enough: you still get the **method name** and the **timing**, which is the point.*
+
+---
+
+## Step 2.9 — Run and Observe
+
+The project's Jest tests already call `boost` and `largestOrder`, so the decorator logs show
+up in the test output — the simplest way to see it work:
+
 ```powershell
-npx tsc --noEmit                              # type-clean with native decorators
-npx tsx srv/exercises/cap-handler.ts          # run it and read the timing logs
+npx tsc --noEmit     # type-clean: decorated methods + the import resolve
+npm test             # tests invoke boost/largestOrder → decorator logs print
+```
+
+<sub>code by anubhav trainings</sub>
+
+Or run the live server and trigger the action over OData:
+
+```powershell
+cds watch            # then call the boost action; watch the terminal log the call + ms
 ```
 
 <sub>code by anubhav trainings</sub>
 
 > [!TIP]
-> *Concept — watch the two timings differ: `boost` reports ~50ms because the async branch waited for the fake DB work; `largestOrder` reports ~0ms on the sync path. If `boost` ever prints ~0ms, your `instanceof Promise` branch isn't firing — re-check Step 2.5.*
+> *Concept — in the output you'll see `→ boost(...)` and `← boost finished in N ms` wrapped around CAP's own `Hey Amigo …` line. That sandwich is proof the decorator runs **around** the real handler — same behaviour, now with logging and timing it never had to ask for.*
 
 ---
 
 ## ✅ Outcome Check
 
-- [ ] One `@LogRequest` decorates **both** methods — no duplicated logging code.
-- [ ] Logs show the **method name** and **JSON-serialized arguments**.
-- [ ] `boost` (async) reports its **real** elapsed time (~50ms), not ~0ms.
-- [ ] Method **return types are preserved** — `await handler.boost(...)` is a `string`.
-- [ ] Compiles with **no** `experimentalDecorators` flag.
+- [ ] `LogRequest` lives in `srv/exercises/cap-handler.ts` and is **imported** into `CatalogService`.
+- [ ] `boost` and `largestOrder` are **class methods** decorated with `@LogRequest`, registered by reference.
+- [ ] `npm test` prints the **method name** and **execution time** around each action.
+- [ ] `JSON.stringify` is **guarded** so the circular `req` can't crash the handler.
+- [ ] Behaviour is unchanged — every existing test still passes.
 
 ---
 
-## Final File — `srv/exercises/cap-handler.ts`
+## Final Files
+
+### `srv/exercises/cap-handler.ts` — the reusable decorator
 
 ```ts
 // ── Reusable method decorator: logs name, args, and execution time ────
-function LogRequest<This, Args extends unknown[], Return>(            // rows 1, 2
+export function LogRequest<This, Args extends unknown[], Return>(     // rows 1, 2
   originalMethod: (this: This, ...args: Args) => Return,
   context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Return>
 ) {
@@ -237,7 +315,7 @@ function LogRequest<This, Args extends unknown[], Return>(            // rows 1,
 
   function replacement(this: This, ...args: Args): Return {          // rows 4, 5
     const start = performance.now()
-    console.log(`→ ${methodName}(${JSON.stringify(args)})`)
+    console.log(`→ ${methodName}(${safeArgs(args)})`)
 
     const finish = () => {
       const ms = (performance.now() - start).toFixed(2)
@@ -255,26 +333,91 @@ function LogRequest<This, Args extends unknown[], Return>(            // rows 1,
   return replacement
 }
 
-// ── Mock CAP handler decorated with @LogRequest ───────────────────────
-class CatalogHandler {
-  @LogRequest                                                       // row 8
-  async boost(orderId: string): Promise<string> {
-    await new Promise((resolve) => setTimeout(resolve, 50))         // pretend DB work
-    return `Order ${orderId} boosted`
-  }
-
-  @LogRequest                                                       // row 8
-  largestOrder(): { ID: number; GROSS_AMOUNT: number } {
-    return { ID: 1, GROSS_AMOUNT: 99999 }
+// CAP request objects are circular — guard the stringify
+function safeArgs(args: unknown[]): string {
+  try {
+    return JSON.stringify(args)
+  } catch {
+    return '[args not serializable]'
   }
 }
+```
 
-// ── Run it (async IIFE: top-level await isn't allowed under CommonJS) ──
-const handler = new CatalogHandler()
-void (async () => {
-  await handler.boost('PO-1000')
-  handler.largestOrder()
-})()
+<sub>code by anubhav trainings</sub>
+
+### `srv/CatalogService.ts` — decorator applied
+
+```ts
+import cds from '@sap/cds'
+import { EmployeeSet_, PurchaseOrderSet_, PurchaseItemsSet_ } from '#cds-models/CatalogService'
+import { LogRequest } from './exercises/cap-handler'                 // import the decorator
+
+export default class CatalogService extends cds.ApplicationService {
+  init() {
+    this.before(['CREATE', 'UPDATE'], EmployeeSet_, async (req) => {
+      console.log('Aa gaya ' + req.data.salaryAmount)
+      if (parseFloat(String(req.data.salaryAmount)) >= 1000000) {
+        req.error(500, 'Salary must be less than a million for employee')
+      }
+    })
+    this.after('READ', EmployeeSet_, async (employeeSet, req) => {
+      console.log('After READ EmployeeSet', employeeSet)
+    })
+    this.before(['CREATE', 'UPDATE'], PurchaseOrderSet_, async (req) => {
+      console.log('Before CREATE/UPDATE PurchaseOrderSet', req.data)
+    })
+    this.after('READ', PurchaseOrderSet_, async (purchaseOrderSet, req) => {
+      console.log('After READ PurchaseOrderSet', purchaseOrderSet)
+    })
+    this.before(['CREATE', 'UPDATE'], PurchaseItemsSet_, async (req) => {
+      console.log('Before CREATE/UPDATE PurchaseItemsSet', req.data)
+    })
+    this.after('READ', PurchaseItemsSet_, async (purchaseItemsSet, req) => {
+      console.log('After READ PurchaseItemsSet', purchaseItemsSet)
+    })
+
+    this.on('boost', (req) => this.boost(req))                       // row 10: register by reference
+    this.on('largestOrder', (req) => this.largestOrder(req))         // row 10
+
+    this.on('getOrderDefaults', async req => {
+      return { OVERALL_STATUS: 'N' }
+    })
+    this.on('setOrderProcessing', PurchaseOrderSet_, async req => {
+      const tx = cds.tx(req)
+      await tx.update(PurchaseOrderSet_, (req.params[0] as { ID: string }).ID)
+        .set({ OVERALL_STATUS: 'D' } as any)
+    })
+
+    return super.init()
+  }
+
+  @LogRequest                                                        // row 8
+  async boost(req: cds.Request) {
+    try {
+      const ID = req.params[0]
+      console.log('Hey Amigo, Your purchase order with id ' + JSON.stringify(req.params[0]) + ' will be boosted')
+      const tx = cds.tx(req)
+      await tx.update(PurchaseOrderSet_).with({
+        GROSS_AMOUNT: { '+=': 20000 },
+        NOTE: 'Boosted!!'
+      } as any).where(ID)
+    } catch (error) {
+      return 'Error ' + String(error)
+    }
+  }
+
+  @LogRequest                                                        // row 8
+  async largestOrder(req: cds.Request) {
+    try {
+      const tx = cds.tx(req)
+      const reply = await tx.read(PurchaseOrderSet_)
+        .orderBy({ GROSS_AMOUNT: 'desc' } as any).limit(1)
+      return reply
+    } catch (error) {
+      return 'Error ' + String(error)
+    }
+  }
+}
 ```
 
 <sub>code by anubhav trainings</sub>
