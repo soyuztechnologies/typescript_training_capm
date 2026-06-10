@@ -32,6 +32,7 @@ prints the call, the args, and the elapsed milliseconds, **without changing what
 | 8 | **Apply it** | `@LogRequest` above the method | the `@` attaches the decorator at class definition |
 | 9 | **Native decorators** | *(no `experimentalDecorators`)* | this project uses **TC39 Stage 3**, not legacy |
 | 10 | **Decorate a method, register by reference** | `this.on('boost', (req) => this.boost(req))` | decorators attach to class **methods**, not inline arrow handlers |
+| 11 | **Down-level the compile target** | `"target": "ES2022"` *(tsconfig.json)* | `ESNext` leaves decorators **raw** → Node `SyntaxError` under `ts-jest` |
 
 ---
 
@@ -291,12 +292,65 @@ cds watch            # then call the boost action; watch the terminal log the ca
 
 ---
 
+## Step 2.10 — Troubleshooting: `SyntaxError` on `@LogRequest` (boost "stops working")
+
+You add the decorator, `cds watch` is fine — but `npm test` (or anything that loads the
+service through Node) fails, and the action you were testing appears broken:
+
+```text
+srv/CatalogService.ts:44
+    @cap_handler_1.LogRequest // row 8
+    ^
+SyntaxError: Invalid or unexpected token
+```
+
+<sub>code by anubhav trainings</sub>
+
+This is **not** a bug in `boost`. The `SyntaxError` means the **whole service file failed to
+load**, so *every* handler (boost, largestOrder, the validations) goes dead at once — it just
+looks like "boost stopped working" because that's what you were exercising.
+
+> [!CAUTION]
+> **Root cause — `"target": "ESNext"`.** With that target, TypeScript assumes the runtime has
+> **native** decorator support and emits your `@LogRequest` **unchanged**. Node has no native
+> decorators, so `require()`-ing the compiled file throws `SyntaxError`. `cds watch` dodges
+> this because **tsx/esbuild always down-levels decorators**; **`ts-jest` (plain `tsc`) obeys
+> `target: ESNext`** and leaves them raw — which is why the break only shows up under Jest.
+
+The fix — lower the compile target so TypeScript rewrites the decorator into a helper Node can
+run:
+
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2022",   // was "ESNext": ESNext keeps decorators raw; ES2022 down-levels them
+    "module": "NodeNext"
+    // …rest unchanged…
+  }
+}
+```
+
+<sub>code by anubhav trainings</sub>
+
+> [!TIP]
+> *Concept — proof at the transpiler level: feed `class X { @Log foo(){} }` to TypeScript and the `@Log` text **survives** at `target: ESNext` but is **removed** (replaced by the decorator helper) at `target: ES2022` or lower. Node 24 runs every ES2022 feature natively, so lowering the target costs nothing here and makes the decorator behave identically under `tsx` and `ts-jest`.*
+
+> [!CAUTION]
+> **Do *not* "fix" it with `experimentalDecorators: true`.** That flips TypeScript to the
+> **legacy** decorator system, whose signature is `(target, propertyKey, descriptor)` — which
+> does **not** match our Stage 3 `(method, context)` decorator, so it would fail to compile.
+> Keep Stage 3; the only change needed is the `target`.
+
+---
+
 ## ✅ Outcome Check
 
 - [ ] `LogRequest` lives in `srv/exercises/cap-handler.ts` and is **imported** into `CatalogService`.
 - [ ] `boost` and `largestOrder` are **class methods** decorated with `@LogRequest`, registered by reference.
 - [ ] `npm test` prints the **method name** and **execution time** around each action.
 - [ ] `JSON.stringify` is **guarded** so the circular `req` can't crash the handler.
+- [ ] `tsconfig.json` uses **`"target": "ES2022"`** so `ts-jest`/Node can load the decorated service (Step 2.10).
 - [ ] Behaviour is unchanged — every existing test still passes.
 
 ---
