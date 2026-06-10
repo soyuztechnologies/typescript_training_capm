@@ -31,8 +31,8 @@ prints the call, the args, and the elapsed milliseconds, **without changing what
 | 7 | **Async timing** | `result instanceof Promise ? result.finally(…)` | stop the clock *after* the promise settles |
 | 8 | **Apply it** | `@LogRequest` above the method | the `@` attaches the decorator at class definition |
 | 9 | **Native decorators** | *(no `experimentalDecorators`)* | this project uses **TC39 Stage 3**, not legacy |
-| 10 | **Decorate a method, register by reference** | `this.on('boost', (req) => this.boost(req))` | decorators attach to class **methods**, not inline arrow handlers |
-| 11 | **Down-level the compile target** | `"target": "ES2022"` *(tsconfig.json)* | `ESNext` leaves decorators **raw** → Node `SyntaxError` under `ts-jest` |
+| 10 | **Decorate a method, register by reference** | `this.on('boost', (req) => this.onBoost(req))` | decorators attach to class **methods**, not inline arrow handlers — and the method name must **not** match the action (Step 2.11) |
+| 11 | **Down-level the target for tests only** | `tsconfig: { target: 'ES2022' }` *(jest.config.js)* | keep project `ESNext`; let **`ts-jest`** down-level decorators so Node can load them |
 
 ---
 
@@ -201,17 +201,17 @@ this.on('largestOrder', async (req) => {
 
 <sub>code by anubhav trainings</sub>
 
-**After — register by reference, define decorated methods:**
+**After — register by reference, define decorated methods with `on`-prefixed names:**
 ```ts
-import { LogRequest } from './exercises/cap-handler'      // at the top of CatalogService.ts
+import { LogRequest } from './exercises/cap-handler'          // at the top of CatalogService.ts
 
 // inside init():
-this.on('boost', (req) => this.boost(req))                // row 10
-this.on('largestOrder', (req) => this.largestOrder(req))  // row 10
+this.on('boost', (req) => this.onBoost(req))                  // row 10
+this.on('largestOrder', (req) => this.onLargestOrder(req))    // row 10
 
-// as class methods (siblings of init()):
-@LogRequest                                               // row 8
-async boost(req: cds.Request) {
+// as class methods (siblings of init()) — names must NOT match the action/function:
+@LogRequest                                                   // row 8
+async onBoost(req: cds.Request) {
   try {
     const ID = req.params[0]
     // … same boost logic, unchanged …
@@ -220,16 +220,25 @@ async boost(req: cds.Request) {
   }
 }
 
-@LogRequest                                               // row 8
-async largestOrder(req: cds.Request) {
+@LogRequest                                                   // row 8
+async onLargestOrder(req: cds.Request) {
   // … same largestOrder logic, unchanged …
 }
 ```
 
 <sub>code by anubhav trainings</sub>
 
+> [!CAUTION]
+> **Do NOT name the method after the action (`boost`/`largestOrder`).** CAP auto-registers any
+> service method whose name matches an action/function as a *convention-based handler* and
+> calls it with the action's **unpacked arguments — not `req`**. That shadows your explicit
+> `this.on(...)` and makes `req.params` undefined inside the method (`req.params[0]` →
+> `Cannot read properties of undefined`). Naming the methods **`onBoost` / `onLargestOrder`**
+> (anything that doesn't match an action name) avoids the auto-wiring, so your forwarding arrow
+> is the only handler and `req` is the real request. See Step 2.11.
+
 > [!TIP]
-> *Concept — `this.on('boost', (req) => this.boost(req))` is a thin forwarding arrow: it keeps `this` bound to the service and calls `this.boost`, which is now the **wrapped (logging)** version (rows 8, 10). The method bodies are copied **verbatim** from the old inline handlers — only their location changed, plus a `req: cds.Request` annotation (a standalone method must type its own parameters; an inline handler had it inferred).*
+> *Concept — `this.on('boost', (req) => this.onBoost(req))` is a thin forwarding arrow: it keeps `this` bound to the service and calls `this.onBoost`, the **wrapped (logging)** version (rows 8, 10). The method bodies are copied **verbatim** from the old inline handlers — only their location and name changed, plus a `req: cds.Request` annotation (a standalone method must type its own parameters; an inline handler had it inferred).*
 
 > [!CAUTION]
 > **`@LogRequest`, not `@LogRequest()`.** Because our decorator takes `(method, context)`
@@ -317,16 +326,20 @@ looks like "boost stopped working" because that's what you were exercising.
 > this because **tsx/esbuild always down-levels decorators**; **`ts-jest` (plain `tsc`) obeys
 > `target: ESNext`** and leaves them raw — which is why the break only shows up under Jest.
 
-The fix — lower the compile target so TypeScript rewrites the decorator into a helper Node can
-run:
+The fix — **keep the project on `ESNext`**, and down-level the decorator for **`ts-jest`
+only**, by overriding the target in the test transform. `ts-jest`'s inline `tsconfig` object
+**merges onto** your real `tsconfig.json`, so this changes nothing outside the test run:
 
-```jsonc
-// tsconfig.json
-{
-  "compilerOptions": {
-    "target": "ES2022",   // was "ESNext": ESNext keeps decorators raw; ES2022 down-levels them
-    "module": "NodeNext"
-    // …rest unchanged…
+```js
+// jest.config.js
+module.exports = {
+  testEnvironment: 'node',
+  setupFiles: ['<rootDir>/test/jest.setup.ts'],
+  transform: {
+    '^.+\\.ts$': ['ts-jest', {
+      isolatedModules: true,
+      tsconfig: { module: 'CommonJS', target: 'ES2022' }   // ← add target: 'ES2022'
+    }]
   }
 }
 ```
@@ -334,7 +347,7 @@ run:
 <sub>code by anubhav trainings</sub>
 
 > [!TIP]
-> *Concept — proof at the transpiler level: feed `class X { @Log foo(){} }` to TypeScript and the `@Log` text **survives** at `target: ESNext` but is **removed** (replaced by the decorator helper) at `target: ES2022` or lower. Node 24 runs every ES2022 feature natively, so lowering the target costs nothing here and makes the decorator behave identically under `tsx` and `ts-jest`.*
+> *Concept — proof at the transpiler level: feed `class X { @Log foo(){} }` to TypeScript and the `@Log` text **survives** at `target: ESNext` but is **removed** (replaced by the decorator helper) at `target: ES2022` or lower. The override moves **only the Jest compile** to ES2022 — your `tsconfig.json` stays `ESNext`, so `cds watch` (tsx) and any production build are untouched. Node 24 runs every ES2022 feature natively, so nothing else changes.*
 
 > [!CAUTION]
 > **Do *not* "fix" it with `experimentalDecorators: true`.** That flips TypeScript to the
@@ -344,13 +357,67 @@ run:
 
 ---
 
+## Step 2.11 — Troubleshooting: `req.params` is undefined inside the handler
+
+You run the action and hit:
+
+```text
+TypeError: Cannot read properties of undefined (reading '0')
+    at CatalogService.boost (srv/CatalogService.ts:47:22)            ← const ID = req.params[0]
+    at CatalogService.replacement (srv/exercises/cap-handler.ts:17)  ← originalMethod.apply(this, args)
+    at <anonymous> (node_modules/@sap/cds/lib/srv/srv-methods.js:45)  ← CAP called the method
+```
+
+<sub>code by anubhav trainings</sub>
+
+> [!CAUTION]
+> **Root cause — the method name matches the action name.** CAP scans your service for
+> methods named after each action/function (`srv-methods.js → add_handler_for`). If it finds
+> `srv.boost`, it **auto-registers it** as a *convention-based handler* and calls it with the
+> action's **unpacked arguments — not `req`**:
+> ```js
+> srv.on(event, function ({ params, data }) {
+>   const args = []; if (def.parent) args.push(def.parent)
+>   for (let p in params) args.push(params[p])
+>   for (let p in data)   args.push(data[p])
+>   return method.apply(this, args)   // boost(parentEntity) — there is no req here
+> })
+> ```
+> So your `req` parameter is actually the bound entity (or `undefined`), `req.params` is
+> undefined, and `req.params[0]` throws. This auto-handler **shadows** your explicit
+> `this.on('boost', (req) => this.boost(req))` — the stack proves it: `replacement` is called
+> straight from `srv-methods.js:45`, not from your arrow.
+
+> [!TIP]
+> *Concept — the giveaway is in the decorator's own log: a real request prints `→ boost([args not serializable])` (the circular `req`), but the broken path prints `→ boost([])` or `→ largestOrder([])` — the empty/unpacked args from CAP's convention handler. `largestOrder` even appears to "work" because it never reads `req.params`; only `boost` crashes.*
+
+The fix — **rename the methods so they don't collide with action/function names** (e.g.
+`onBoost`, `onLargestOrder`), keeping the explicit registration:
+
+```ts
+this.on('boost', (req) => this.onBoost(req))               // explicit handler stays
+this.on('largestOrder', (req) => this.onLargestOrder(req))
+
+@LogRequest async onBoost(req: cds.Request) { /* req.params[0] now works */ }
+@LogRequest async onLargestOrder(req: cds.Request) { /* … */ }
+```
+
+<sub>code by anubhav trainings</sub>
+
+> [!TIP]
+> *Concept — once no method is named `boost`, `add_handler_for`'s `if (method)` check is false, CAP skips the auto-wiring, and your forwarding arrow is the **only** handler — so `req` is the genuine `cds.Request` with a populated `params` getter. This is why the original inline handler never had the problem: there was no method named `boost` to auto-bind.*
+
+---
+
 ## ✅ Outcome Check
 
 - [ ] `LogRequest` lives in `srv/exercises/cap-handler.ts` and is **imported** into `CatalogService`.
-- [ ] `boost` and `largestOrder` are **class methods** decorated with `@LogRequest`, registered by reference.
+- [ ] The decorated methods are named **`onBoost` / `onLargestOrder`** — *not* `boost` / `largestOrder` (Step 2.11).
+- [ ] They are registered by reference: `this.on('boost', (req) => this.onBoost(req))`.
 - [ ] `npm test` prints the **method name** and **execution time** around each action.
+- [ ] `req.params[0]` resolves correctly inside `onBoost` (no `TypeError`).
 - [ ] `JSON.stringify` is **guarded** so the circular `req` can't crash the handler.
-- [ ] `tsconfig.json` uses **`"target": "ES2022"`** so `ts-jest`/Node can load the decorated service (Step 2.10).
+- [ ] `jest.config.js` overrides **`target: 'ES2022'`** for `ts-jest` so Node can load the decorated service — project `tsconfig.json` stays `ESNext` (Step 2.10).
 - [ ] Behaviour is unchanged — every existing test still passes.
 
 ---
@@ -430,8 +497,8 @@ export default class CatalogService extends cds.ApplicationService {
       console.log('After READ PurchaseItemsSet', purchaseItemsSet)
     })
 
-    this.on('boost', (req) => this.boost(req))                       // row 10: register by reference
-    this.on('largestOrder', (req) => this.largestOrder(req))         // row 10
+    this.on('boost', (req) => this.onBoost(req))                     // row 10: register by reference
+    this.on('largestOrder', (req) => this.onLargestOrder(req))       // row 10
 
     this.on('getOrderDefaults', async req => {
       return { OVERALL_STATUS: 'N' }
@@ -445,8 +512,10 @@ export default class CatalogService extends cds.ApplicationService {
     return super.init()
   }
 
+  // NOTE: method names are onBoost / onLargestOrder — they must NOT match the
+  // action names 'boost' / 'largestOrder', or CAP auto-calls them without `req` (Step 2.11).
   @LogRequest                                                        // row 8
-  async boost(req: cds.Request) {
+  async onBoost(req: cds.Request) {
     try {
       const ID = req.params[0]
       console.log('Hey Amigo, Your purchase order with id ' + JSON.stringify(req.params[0]) + ' will be boosted')
@@ -461,7 +530,7 @@ export default class CatalogService extends cds.ApplicationService {
   }
 
   @LogRequest                                                        // row 8
-  async largestOrder(req: cds.Request) {
+  async onLargestOrder(req: cds.Request) {
     try {
       const tx = cds.tx(req)
       const reply = await tx.read(PurchaseOrderSet_)
