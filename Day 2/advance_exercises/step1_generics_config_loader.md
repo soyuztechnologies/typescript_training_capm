@@ -31,6 +31,21 @@ editor knows the difference at every call site.
 
 ---
 
+## 📋 Cheat Sheet - Utility Type
+
+| # | Utility | Syntax | Why |
+|---|---------|--------|-----|
+| 1 | **`Readonly<T>`** | `Readonly<PurchaseOrder>` | every property becomes immutable — for query results you must not mutate |
+| 2 | **`Omit<T, K>`** | `Omit<PurchaseOrder, 'ID' \| 'createdAt'>` | remove server-managed fields the client must not send |
+| 3 | **`Partial<T>`** | `Partial<CreateOrder>` | make every field optional — *patch / PATCH* semantics |
+| 4 | **`Pick<T, K>`** | `Pick<PurchaseOrder, 'ID'>` | keep **only** the named keys |
+| 5 | **Key union** | `'createdAt' \| 'createdBy' \| 'modifiedAt'` | the `K` in `Omit`/`Pick` is a string-literal **union** |
+| 6 | **Compose utilities** | `Partial<CreateOrder> & Pick<…, 'ID'>` | combine them for *required-key + optional-rest* shapes |
+| 7 | **`satisfies`** | `const x = { … } satisfies CreateOrder` | validate a literal against a type **without widening** it |
+
+---
+---
+
 ## Step 1.1 — Create the Exercise Files
 
 Create the folder and the three files you will work in this session.
@@ -39,7 +54,6 @@ Create the folder and the three files you will work in this session.
 New-Item -ItemType Directory -Force d:\solution_mycapapp_ts\srv\exercises
 New-Item -ItemType File d:\solution_mycapapp_ts\srv\exercises\config-loader.ts
 New-Item -ItemType File d:\solution_mycapapp_ts\srv\exercises\entity-types.ts
-New-Item -ItemType File d:\solution_mycapapp_ts\srv\exercises\cap-handler.ts
 ```
 
 <sub>code by anubhav trainings</sub>
