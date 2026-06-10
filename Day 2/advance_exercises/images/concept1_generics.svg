@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+  <style>
+    .title{font-size:26px;font-weight:700;fill:#1f2328}
+    .sub{font-size:15px;fill:#57606a}
+    .lbl{font-size:16px;font-weight:700;fill:#1f2328}
+    .mono{font-family:Consolas,monospace;font-size:14px;fill:#1f2328}
+    .small{font-size:12px;fill:#57606a}
+    .tag{font-size:13px;font-weight:700;fill:#0969da}
+    .brand{font-size:12px;fill:#8c959f}
+  </style>
+  <defs>
+    <marker id="ar" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L9,4 L0,8 Z" fill="#0969da"/>
+    </marker>
+  </defs>
+  <rect width="960" height="620" fill="#ffffff"/>
+  <text x="40" y="46" class="title">Generics &#8212; write the engine once, keep the type</text>
+  <text x="40" y="72" class="sub">JS analogy: a function that works on any value. TypeScript adds one thing &#8212; it remembers WHICH type came back out.</text>
+
+  <!-- INPUT cards (the shapes you supply) -->
+  <text x="40" y="120" class="tag">1&#46; YOU SUPPLY THE SHAPE</text>
+  <rect x="40" y="135" width="260" height="90" rx="10" fill="#dafbe1" stroke="#1f883d" stroke-width="2"/>
+  <text x="56" y="165" class="lbl">isDatabaseConfig</text>
+  <text x="56" y="190" class="mono">(raw): raw is DatabaseConfig</text>
+  <text x="56" y="212" class="small">checks host / port / ssl</text>
+
+  <rect x="40" y="385" width="260" height="90" rx="10" fill="#dafbe1" stroke="#1f883d" stroke-width="2"/>
+  <text x="56" y="415" class="lbl">isServerConfig</text>
+  <text x="56" y="440" class="mono">(raw): raw is ServerConfig</text>
+  <text x="56" y="462" class="small">checks name / workers</text>
+
+  <!-- ENGINE (one reusable class) -->
+  <text x="392" y="120" class="tag">2&#46; ONE REUSABLE ENGINE</text>
+  <rect x="380" y="200" width="210" height="210" rx="12" fill="#ddf4ff" stroke="#0969da" stroke-width="2.5"/>
+  <text x="485" y="235" class="lbl" text-anchor="middle">class</text>
+  <text x="485" y="262" font-size="19" font-weight="700" fill="#0969da" font-family="Consolas,monospace" text-anchor="middle">ConfigLoader&lt;T&gt;</text>
+  <line x1="400" y1="278" x2="570" y2="278" stroke="#0969da" stroke-dasharray="4 3"/>
+  <text x="485" y="305" class="mono" text-anchor="middle">load(raw: unknown): T</text>
+  <text x="485" y="332" class="small" text-anchor="middle">validate the raw value&#44;</text>
+  <text x="485" y="350" class="small" text-anchor="middle">then return it AS T</text>
+  <text x="485" y="388" font-size="12" fill="#0969da" text-anchor="middle">&#60;T&#62; = a blank the caller fills in</text>
+
+  <!-- OUTPUT cards (typed results) -->
+  <text x="660" y="120" class="tag">3&#46; YOU GET A TYPED RESULT</text>
+  <rect x="660" y="135" width="260" height="90" rx="10" fill="#fff8c5" stroke="#9a6700" stroke-width="2"/>
+  <text x="676" y="165" class="mono">db&#46;host  db&#46;port  db&#46;ssl  &#10003;</text>
+  <text x="676" y="190" class="lbl">type: DatabaseConfig</text>
+  <text x="676" y="212" class="small">autocompletes&#44; typos error</text>
+
+  <rect x="660" y="385" width="260" height="90" rx="10" fill="#fff8c5" stroke="#9a6700" stroke-width="2"/>
+  <text x="676" y="415" class="mono">server&#46;name  server&#46;workers  &#10003;</text>
+  <text x="676" y="440" class="lbl">type: ServerConfig</text>
+  <text x="676" y="462" class="small">a DIFFERENT type&#44; same class</text>
+
+  <!-- arrows in -->
+  <line x1="300" y1="180" x2="378" y2="250" stroke="#0969da" stroke-width="2" marker-end="url(#ar)"/>
+  <line x1="300" y1="430" x2="378" y2="360" stroke="#0969da" stroke-width="2" marker-end="url(#ar)"/>
+  <!-- arrows out -->
+  <line x1="592" y1="250" x2="658" y2="180" stroke="#0969da" stroke-width="2" marker-end="url(#ar)"/>
+  <text x="600" y="205" class="small" fill="#0969da">T = DatabaseConfig</text>
+  <line x1="592" y1="360" x2="658" y2="430" stroke="#0969da" stroke-width="2" marker-end="url(#ar)"/>
+  <text x="600" y="405" class="small" fill="#0969da">T = ServerConfig</text>
+
+  <!-- the unknown gate (pink) -->
+  <rect x="40" y="510" width="880" height="74" rx="10" fill="#ffebe9" stroke="#cf222e" stroke-width="2"/>
+  <text x="58" y="538" font-size="14" font-weight="700" fill="#cf222e">The safety gate:</text>
+  <text x="58" y="560" class="mono">raw: unknown  &#8594;  if (validate(raw)) { ... }  &#8594;  raw is now T</text>
+  <text x="58" y="578" class="small">`unknown` forbids reading any property until you PROVE the shape. That proof is the validator. (`any` would skip the gate entirely.)</text>
+
+  <text x="920" y="606" class="brand" text-anchor="end">code by anubhav trainings</text>
+</svg>
