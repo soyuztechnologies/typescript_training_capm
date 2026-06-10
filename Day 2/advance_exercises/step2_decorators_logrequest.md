@@ -545,11 +545,4 @@ export default class CatalogService extends cds.ApplicationService {
 
 <sub>code by anubhav trainings</sub>
 
----
-
-> [!TIP]
-> *Next — Step 3 (Utility types) uses `srv/exercises/entity-types.ts`: take a full BTP service entity interface and derive `ReadOnly`, `CreatePayload`, and `UpdatePayload` using `Readonly`, `Omit`, and `Partial` — without repeating a single property definition. Generics (Step 1) and decorators (Step 2) gave you reuse at the value level; utility types give you reuse at the **type** level.*
-
----
-
 <sub>Document generated for the TypeScript decorators exercise · code by anubhav trainings</sub>
