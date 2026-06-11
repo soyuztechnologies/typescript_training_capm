@@ -13,7 +13,7 @@
 | View the key | `cf service-key s4-destination s4-key` |
 | Bind locally (hybrid) | `cds bind -2 s4-destination` |
 | Run with cloud bindings | `cds watch --profile hybrid` |
-| Test file | `srv/tests.http` (VS Code REST Client extension) |
+| Test file | `srv/tester.http` (VS Code REST Client extension) |
 | Destination name | `S4HANA_SALESORDER` (used in code & config) |
 
 <sub>**code by anubhav trainings**</sub>
@@ -169,13 +169,13 @@ You should see CAP log that it connected the `S4HANA_SALESORDER` destination. No
 
 ---
 
-## 4.5 — Test GET and POST with `srv/tests.http`
+## 4.5 — Test GET and POST with `srv/tester.http`
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
 <em>💡 <strong>Concept — the `.http` file:</strong> with the VS Code "REST Client" extension you can write plain-text HTTP requests in a file and click "Send Request" above each one. No Postman needed — the requests live in your repo next to the code.</em>
 </div>
 
-Create `srv/tests.http`:
+Create `srv/tester.http`:
 
 ```http
 @host = http://localhost:4004
@@ -190,7 +190,7 @@ Content-Type: application/json
 
 {
   "order": {
-    "salesOrderType": "OR",
+    "salesOrderType": "TA",
     "salesOrganization": "BMGB",
     "distributionChannel": "DB",
     "organizationDivision": "AC",
@@ -202,7 +202,7 @@ Content-Type: application/json
         "salesOrderItem": "10",
         "material": "220",
         "requestedQuantity": "5",
-        "requestedQuantityUnit": "PC"
+        "requestedQuantityUnit": "PCE"
       }
     ]
   }
@@ -212,14 +212,14 @@ Content-Type: application/json
 <sub>**code by anubhav trainings**</sub>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note — OData V4 payload:</strong> because this is a <strong>V4</strong> service, dates are plain ISO strings (<code>"2026-04-06"</code>, the V4 form of the original <code>/Date(1775433600000)/</code> timestamp) and child line items sit in a <code>_Item</code> array with <strong>no</strong> <code>results</code> wrapper. Cross-check field names against your real <code>$metadata</code>.
+📌 <strong>Note — this is the CAP payload, not the S/4 wire payload:</strong> we send our clean camelCase fields (<code>material</code>, <code>requestedQuantityUnit</code>). The handler maps them to S/4's names before calling — <code>material → Product</code> and the ISO unit <code>"PCE"</code> → <code>RequestedQuantityIsoUnit</code>. Use <code>salesOrderType</code> <code>"TA"</code> (standard order) and a valid ISO unit like <code>"PCE"</code>; the SAP-internal <code>"PC"</code> is rejected on this channel. The <code>salesOrderItem</code> number is ignored — S/4 auto-numbers items.
 </div>
 
-For reference, the **raw S/4HANA V4 payload** (what the SDK sends to the system, before our slim CAP wrapper) — the V4 form of the sample you provided:
+For reference, the **raw S/4HANA V4 payload** (what the SDK actually sends after the handler's mapping) looks like this — note `Product`, `RequestedQuantityISOUnit`, and **no** `SalesOrderItem`:
 
 ```json
 {
-  "SalesOrderType": "OR",
+  "SalesOrderType": "TA",
   "SalesOrganization": "BMGB",
   "DistributionChannel": "DB",
   "OrganizationDivision": "AC",
@@ -228,10 +228,9 @@ For reference, the **raw S/4HANA V4 payload** (what the SDK sends to the system,
   "SalesOrderDate": "2026-04-06",
   "_Item": [
     {
-      "SalesOrderItem": "10",
-      "Material": "220",
+      "Product": "220",
       "RequestedQuantity": "5",
-      "RequestedQuantityUnit": "PC"
+      "RequestedQuantityISOUnit": "PCE"
     }
   ]
 }
@@ -278,7 +277,7 @@ Accept: application/json
 
 ## 4.8 — Final files for Step 4
 
-### `srv/tests.http`
+### `srv/tester.http`
 
 ```http
 @host = http://localhost:4004
@@ -293,7 +292,7 @@ Content-Type: application/json
 
 {
   "order": {
-    "salesOrderType": "OR",
+    "salesOrderType": "TA",
     "salesOrganization": "BMGB",
     "distributionChannel": "DB",
     "organizationDivision": "AC",
@@ -305,7 +304,7 @@ Content-Type: application/json
         "salesOrderItem": "10",
         "material": "220",
         "requestedQuantity": "5",
-        "requestedQuantityUnit": "PC"
+        "requestedQuantityUnit": "PCE"
       }
     ]
   }
@@ -345,8 +344,8 @@ Content-Type: application/json
 - [ ] `package.json` hybrid profile points to the Destination.
 - [ ] SDK calls switched to `{ destinationName: 'S4HANA_SALESORDER' }` for hybrid/cloud.
 - [ ] `cds watch --profile hybrid` connects to the Destination.
-- [ ] `srv/tests.http` GET returns `200` with orders.
-- [ ] `srv/tests.http` POST returns `201` with a created order number.
+- [ ] `srv/tester.http` GET returns `200` with orders.
+- [ ] `srv/tester.http` POST returns `201` with a created order number.
 
 ---
 

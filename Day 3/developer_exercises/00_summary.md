@@ -21,7 +21,8 @@
 | Secrets / URLs | `.env` file (never commit) | Step 2 |
 | Type guards & parsers | `config-loader.ts`, `payload-parser.ts`, `*.d.ts` | Step 3 |
 | BTP Destination | `cf create-service destination ...` + service key | Step 4 |
-| Manual API testing | `srv/tests.http` (REST Client) | Step 4 |
+| Decimal quantities | `npm i bignumber.js` | Step 3 |
+| Manual API testing | `srv/tester.http` (REST Client) | Step 4 |
 
 <sub>**code by anubhav trainings**</sub>
 
@@ -104,6 +105,53 @@ In this guide, TypeScript types come from **two automatic sources**, so we almos
 
 1. **`cds-typer`** generates types from our local `.cds` model (`#cds-models/...`).
 2. **The S/4HANA Cloud SDK generator** generates types from the remote EDMX metadata.
+
+---
+
+## 🧩 Why we create each TypeScript file
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 We do not put everything in one big file. Each <code>.ts</code> file has <strong>one job</strong> (the "single responsibility" idea). Small, focused files are easier to read, test and reuse — and TypeScript can check the contract <em>between</em> them.</em>
+</div>
+
+The diagram below shows how the files fit together — the CAP service in the middle, leaning on small helper files, and talking to S/4HANA through the generated client:
+
+![End-to-end design: CAP CatalogService using config-loader, payload-parser, shared types and the generated S/4HANA client](./image/design.svg)
+
+<sub>**code by anubhav trainings**</sub>
+
+<table style="border-collapse: collapse; width: 100%;">
+<tr style="background-color: #f5f5f5;">
+<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">File</th>
+<th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Why it exists (its one job)</th>
+</tr>
+<tr>
+<td style="border: 1px solid #ddd; padding: 8px;"><code>srv/CatalogService.ts</code></td>
+<td style="border: 1px solid #ddd; padding: 8px;">The <strong>orchestrator</strong>. Registers the event handlers (the 3 local validations + the GET/POST mashup) and wires the small helpers together. It stays thin: parse → call → return.</td>
+</tr>
+<tr style="background-color: #f9f9f9;">
+<td style="border: 1px solid #ddd; padding: 8px;"><code>srv/lib/config-loader.ts</code></td>
+<td style="border: 1px solid #ddd; padding: 8px;">The <strong>connection settings</strong>. Reads host + credentials from <code>.env</code>, appends the fixed service path in code, validates nothing is missing, and exposes the V2/V4 type guards. One place owns "where and how we connect".</td>
+</tr>
+<tr>
+<td style="border: 1px solid #ddd; padding: 8px;"><code>srv/lib/payload-parser.ts</code></td>
+<td style="border: 1px solid #ddd; padding: 8px;">The <strong>bouncer</strong>. Turns untrusted incoming JSON into a clean, fully typed <code>SalesOrderInput</code>, rejecting bad input with a clear message. Keeps validation out of the handler.</td>
+</tr>
+<tr style="background-color: #f9f9f9;">
+<td style="border: 1px solid #ddd; padding: 8px;"><code>srv/types/sales-order.d.ts</code></td>
+<td style="border: 1px solid #ddd; padding: 8px;">The <strong>shared vocabulary</strong>. Holds the reusable interfaces (<code>SalesOrderInput</code>, <code>SalesOrderView</code>, <code>S4Config</code>, …) so every file agrees on the same shapes. Contains only types — it disappears at runtime.</td>
+</tr>
+<tr>
+<td style="border: 1px solid #ddd; padding: 8px;"><code>srv/src/generated/…</code></td>
+<td style="border: 1px solid #ddd; padding: 8px;">The <strong>typed S/4HANA client</strong> (auto-generated in Step 2). Provides the request/entity builders so calls to the remote service are fully type-safe — we never hand-write these interfaces.</td>
+</tr>
+</table>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note:</strong> The diagram loads from <code>./image/design.svg</code> (relative to this folder). If it does not render, create the file at <code>Day 3/developer_exercises/image/design.svg</code>.
+</div>
+
+<sub>**code by anubhav trainings**</sub>
 
 ---
 

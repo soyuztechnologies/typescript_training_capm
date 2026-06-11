@@ -13,8 +13,9 @@
 | Payload parser | `srv/lib/payload-parser.ts` | validates + maps incoming JSON |
 | Shared types | `srv/types/sales-order.d.ts` | reusable interfaces & contracts |
 | Generated client | `srv/src/generated/sap-s4-OP_SALESORDER_0001-v1` | typed S/4HANA API (factory `sapS4OpSalesorder0001V1`, from Step 2) |
+| Decimal quantities | `npm i bignumber.js` → `new BigNumber('5')` | item qty |
 | Read sales orders | `salesOrderApi.requestBuilder().getAll().execute(dest)` | GET |
-| Create sales order | `salesOrderApi.requestBuilder().create(order).execute(dest)` | POST |
+| Create order + items | `salesOrderItemApi.entityBuilder()...build()` → `.item(items)` → `create(order)` | POST |
 
 <sub>**code by anubhav trainings**</sub>
 
@@ -92,15 +93,23 @@ Create `srv/lib/config-loader.ts`:
 import 'dotenv/config';
 import type { S4Config, ODataVersion } from '../types/sales-order';
 
+// OData V4 service binding for the Sales Order (A2X) service.
+// Kept here (not in .env) so the env only holds the host/credentials.
+const SALES_ORDER_SERVICE_PATH =
+  '/sap/opu/odata4/sap/api_salesorder/srvd_a2x/sap/salesorder/0001';
+
 // Read and validate the S/4HANA configuration from .env
 export function loadS4Config(): S4Config {
-  const url = process.env.S4_URL ?? '';
+  const host = process.env.S4_URL ?? '';
   const username = process.env.S4_USERNAME ?? '';
   const password = process.env.S4_PASSWORD ?? '';
 
-  if (!url || !username || !password) {
+  if (!host || !username || !password) {
     throw new Error('Missing S4_URL / S4_USERNAME / S4_PASSWORD in .env');
   }
+
+  // Combine host (from .env) with the service path (defined above).
+  const url = host.replace(/\/+$/, '') + SALES_ORDER_SERVICE_PATH;
 
   return { url, username, password, odataVersion: detectVersion(url) };
 }
@@ -130,14 +139,20 @@ export function isODataV4(config: S4Config): config is S4Config & { odataVersion
 ```javascript
 require('dotenv/config');
 
+// Service path lives in code, not in .env, so the env stays clean.
+const SALES_ORDER_SERVICE_PATH =
+  '/sap/opu/odata4/sap/api_salesorder/srvd_a2x/sap/salesorder/0001';
+
 function loadS4Config() {
-  const url = process.env.S4_URL || '';
+  const host = process.env.S4_URL || '';
   const username = process.env.S4_USERNAME || '';
   const password = process.env.S4_PASSWORD || '';
 
-  if (!url || !username || !password) {
+  if (!host || !username || !password) {
     throw new Error('Missing S4_URL / S4_USERNAME / S4_PASSWORD in .env');
   }
+
+  const url = host.replace(/\/+$/, '') + SALES_ORDER_SERVICE_PATH;
   return { url, username, password, odataVersion: detectVersion(url) };
 }
 
@@ -155,6 +170,10 @@ module.exports = { loadS4Config, detectVersion, isODataV2, isODataV4 };
 </div>
 
 <sub>**code by anubhav trainings**</sub>
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Concept — host in `.env`, path in code:</strong> the <code>.env</code> now holds only the <strong>host + port + credentials</strong> (the things that change per environment or are secret). The long, stable <strong>service path</strong> lives in one constant inside <code>config-loader.ts</code>, and we join them with <code>host.replace(/\/+$/, '') + PATH</code> (the regex trims any trailing slash so we never get a double <code>//</code>). This keeps <code>.env</code> clean and makes the endpoint easy to read in one place.</em>
+</div>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
 📌 <strong>Note — the magic words:</strong> <code>config is S4Config & { odataVersion: 'v2' }</code> is the return type that makes it a <em>type guard</em>. After <code>if (isODataV2(cfg))</code>, TypeScript <strong>narrows</strong> <code>cfg</code> and knows for certain it is the V2 shape. JavaScript loses this entirely — it only sees a boolean.
@@ -286,6 +305,7 @@ We will now extend `srv/CatalogService.ts` from Step 1 to also serve sales order
 
 ```typescript
 import cds from '@sap/cds';
+import BigNumber from 'bignumber.js';
 import { loadS4Config } from './lib/config-loader';
 import { parseSalesOrder } from './lib/payload-parser';
 import type { SalesOrderView } from './types/sales-order';
@@ -293,6 +313,12 @@ import type { SalesOrderView } from './types/sales-order';
 // Generated in Step 2 (folder + factory are named after the EDMX service):
 import { sapS4OpSalesorder0001V1 as salesOrderService } from './src/generated/sap-s4-OP_SALESORDER_0001-v1';
 ```
+
+<sub>**code by anubhav trainings**</sub>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note — install <code>bignumber.js</code>:</strong> S/4HANA quantity fields are decimals, and the SDK types them as <code>BigNumber</code> (exact decimal math, no floating-point rounding). Install it once: <code>npm install bignumber.js</code>. We use it in <code>createSalesOrder</code> to pass <code>requestedQuantity</code>.
+</div>
 
 <sub>**code by anubhav trainings**</sub>
 
@@ -363,25 +389,44 @@ this.on('getSalesOrders', async () => {
 
 <sub>**code by anubhav trainings**</sub>
 
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Concept — request builder:</strong> <code>salesOrderApi.requestBuilder().getAll()</code> builds a typed OData GET. <code>.top(20)</code> caps the rows so a demo does not pull thousands. The SDK returns typed <code>SalesOrder</code> entities, which we map down to our slim <code>SalesOrderView</code>.</em>
+</div>
+
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note:</strong> <code>.top(20)</code> limits results so a demo does not pull thousands of rows. The <code>?? ''</code> handles optional fields the SDK types as possibly <code>undefined</code> — TypeScript forces you to decide what happens when a field is missing.
+📌 <strong>Note:</strong> The <code>?? ''</code> handles fields the SDK types as possibly <code>undefined</code> — TypeScript forces you to decide what happens when a value is missing. Here we read only header fields; creating an order <em>with</em> line items is handled next in <code>createSalesOrder</code>.
 </div>
 
 ---
 
 ## 3.5 — The mashup handler: POST (create a sales order)
 
-### Snippet C — handle the create action
+### Snippet C — handle the create action (header **and** items)
+
+This is the real-world version: we build each line item with the **item** API, attach them to the order via `.item(...)`, and wrap the call in `try/catch` so the actual S/4HANA error is surfaced instead of a generic 500.
 
 ```typescript
 this.on('createSalesOrder', async (req): Promise<SalesOrderView> => {
   const cfg = loadS4Config();
-
-  // 1) validate + normalise the incoming JSON
   const input = parseSalesOrder(req.data.order);
 
-  // 2) build the entity the way the generated client expects
-  const api = salesOrderService().salesOrderApi;
+  const service = salesOrderService();
+  const api = service.salesOrderApi;
+
+  // Map the validated input items to S/4HANA SalesOrderItem entities.
+  // Note the S/4 field names: material -> product, unit -> requestedQuantityIsoUnit
+  // (S/4 expects the ISO unit code, e.g. "PCE", here — not the SAP-internal code).
+  // Do not send salesOrderItem: S/4 rejects external item numbering through
+  // this channel ("External numbering is not supported"), so let it auto-number.
+  const items = input.items.map((it) =>
+    service.salesOrderItemApi
+      .entityBuilder()
+      .product(it.material)
+      .requestedQuantity(new BigNumber(it.requestedQuantity))
+      .requestedQuantityIsoUnit(it.requestedQuantityUnit)
+      .build()
+  );
+
   const newOrder = api.entityBuilder()
     .salesOrderType(input.salesOrderType)
     .salesOrganization(input.salesOrganization)
@@ -389,24 +434,30 @@ this.on('createSalesOrder', async (req): Promise<SalesOrderView> => {
     .organizationDivision(input.organizationDivision)
     .salesDistrict(input.salesDistrict)
     .soldToParty(input.soldToParty)
+    .item(items)
     .build();
 
-  // 3) POST it to S/4HANA
-  const created = await api.requestBuilder()
-    .create(newOrder)
-    .execute({
-      url: cfg.url,
-      username: cfg.username,
-      password: cfg.password,
-    });
+  console.log('[createSalesOrder] →', cfg.url + '/SalesOrder');
 
-  // 4) return the slim view
-  return {
-    salesOrder: created.salesOrder,
-    salesOrderType: created.salesOrderType ?? '',
-    soldToParty: created.soldToParty ?? '',
-    salesOrganization: created.salesOrganization ?? '',
-  };
+  try {
+    const created = await api.requestBuilder()
+      .create(newOrder)
+      .execute({ url: cfg.url, username: cfg.username, password: cfg.password });
+
+    return {
+      salesOrder: created.salesOrder,
+      salesOrderType: created.salesOrderType ?? '',
+      soldToParty: created.soldToParty ?? '',
+      salesOrganization: created.salesOrganization ?? '',
+    };
+  } catch (err: any) {
+    // Surface the real S/4 response instead of a generic 500.
+    const status = err?.response?.status ?? err?.status;
+    const body = err?.response?.data ?? err?.rootCause?.response?.data;
+    console.error('[createSalesOrder] S/4 error status:', status);
+    console.error('[createSalesOrder] S/4 error body:', JSON.stringify(body, null, 2));
+    req.reject(status ?? 500, body?.error?.message ?? err?.message ?? 'S/4 call failed');
+  }
 });
 ```
 
@@ -419,10 +470,20 @@ this.on('createSalesOrder', async (req): Promise<SalesOrderView> => {
 ```javascript
 this.on('createSalesOrder', async (req) => {
   const cfg = loadS4Config();
-
   const input = parseSalesOrder(req.data.order);
 
-  const api = salesOrderService().salesOrderApi;
+  const service = salesOrderService();
+  const api = service.salesOrderApi;
+
+  const items = input.items.map((it) =>
+    service.salesOrderItemApi
+      .entityBuilder()
+      .product(it.material)
+      .requestedQuantity(new BigNumber(it.requestedQuantity))
+      .requestedQuantityIsoUnit(it.requestedQuantityUnit)
+      .build()
+  );
+
   const newOrder = api.entityBuilder()
     .salesOrderType(input.salesOrderType)
     .salesOrganization(input.salesOrganization)
@@ -430,22 +491,30 @@ this.on('createSalesOrder', async (req) => {
     .organizationDivision(input.organizationDivision)
     .salesDistrict(input.salesDistrict)
     .soldToParty(input.soldToParty)
+    .item(items)
     .build();
 
-  const created = await api.requestBuilder()
-    .create(newOrder)
-    .execute({
-      url: cfg.url,
-      username: cfg.username,
-      password: cfg.password,
-    });
+  console.log('[createSalesOrder] →', cfg.url + '/SalesOrder');
 
-  return {
-    salesOrder: created.salesOrder,
-    salesOrderType: created.salesOrderType || '',
-    soldToParty: created.soldToParty || '',
-    salesOrganization: created.salesOrganization || '',
-  };
+  try {
+    const created = await api.requestBuilder()
+      .create(newOrder)
+      .execute({ url: cfg.url, username: cfg.username, password: cfg.password });
+
+    return {
+      salesOrder: created.salesOrder,
+      salesOrderType: created.salesOrderType || '',
+      soldToParty: created.soldToParty || '',
+      salesOrganization: created.salesOrganization || '',
+    };
+  } catch (err) {
+    const status = (err && err.response && err.response.status) || err.status;
+    const body = (err && err.response && err.response.data) ||
+                 (err && err.rootCause && err.rootCause.response && err.rootCause.response.data);
+    console.error('[createSalesOrder] S/4 error status:', status);
+    console.error('[createSalesOrder] S/4 error body:', JSON.stringify(body, null, 2));
+    req.reject(status || 500, (body && body.error && body.error.message) || err.message || 'S/4 call failed');
+  }
 });
 ```
 
@@ -454,11 +523,11 @@ this.on('createSalesOrder', async (req) => {
 <sub>**code by anubhav trainings**</sub>
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
-<em>💡 <strong>Concept — the entity builder:</strong> the generated <code>entityBuilder()</code> gives a typed, fluent way to assemble a new record. Each <code>.field(value)</code> is checked against the real S/4HANA field type — pass a number where a string is required and it will not compile.</em>
+<em>💡 <strong>Concept — building child items:</strong> we create each line with <code>salesOrderItemApi.entityBuilder()</code> and attach the whole array to the header through the <code>.item(items)</code> navigation setter. The SDK serialises this as the V4 <code>_Item</code> array on the wire — no <code>results</code> wrapper, no manual JSON.</em>
 </div>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note — items & dates (OData V4):</strong> because this is a <strong>V4</strong> service, child line items are attached through the generated <code>_Item</code> navigation (an array, with <strong>no</strong> <code>results</code> wrapper) and dates are plain ISO strings such as <code>"2026-04-02"</code>. Use <code>salesOrderItemApi.entityBuilder()</code> for each item and attach them via the builder's navigation setter. Step 4 shows the full V4 payload.
+📌 <strong>Note — the field-name gotchas:</strong> S/4HANA's create API uses <code>product</code> (not <code>material</code>) and <code>requestedQuantityIsoUnit</code> (the ISO unit code, e.g. <code>"PCE"</code>, not the internal <code>"PC"</code>). Do <strong>not</strong> send <code>salesOrderItem</code> — external item numbering is rejected, so let S/4 auto-number. The <code>try/catch</code> reads the real S/4 error body and re-throws it with <code>req.reject</code>, so the caller sees the genuine reason instead of a blank 500.
 </div>
 
 ---
@@ -511,14 +580,23 @@ export interface S4Config {
 import 'dotenv/config';
 import type { S4Config, ODataVersion } from '../types/sales-order';
 
+// OData V4 service binding for the Sales Order (A2X) service.
+// Kept here (not in .env) so the env only holds the host/credentials.
+const SALES_ORDER_SERVICE_PATH =
+  '/sap/opu/odata4/sap/api_salesorder/srvd_a2x/sap/salesorder/0001';
+
 export function loadS4Config(): S4Config {
-  const url = process.env.S4_URL ?? '';
+  const host = process.env.S4_URL ?? '';
   const username = process.env.S4_USERNAME ?? '';
   const password = process.env.S4_PASSWORD ?? '';
 
-  if (!url || !username || !password) {
+  if (!host || !username || !password) {
     throw new Error('Missing S4_URL / S4_USERNAME / S4_PASSWORD in .env');
   }
+
+  // Combine host (from .env) with the service path (defined above).
+  const url = host.replace(/\/+$/, '') + SALES_ORDER_SERVICE_PATH;
+
   return { url, username, password, odataVersion: detectVersion(url) };
 }
 
@@ -591,6 +669,7 @@ export function parseSalesOrder(raw: unknown): SalesOrderInput {
 
 ```typescript
 import cds from '@sap/cds';
+import BigNumber from 'bignumber.js';
 import { Material, Plant } from '#cds-models/CatalogService';
 import { loadS4Config } from './lib/config-loader';
 import { parseSalesOrder } from './lib/payload-parser';
@@ -658,7 +737,23 @@ export class CatalogService extends cds.ApplicationService {
     const cfg = loadS4Config();
     const input = parseSalesOrder(req.data.order);
 
-    const api = salesOrderService().salesOrderApi;
+    const service = salesOrderService();
+    const api = service.salesOrderApi;
+
+    // Map the validated input items to S/4HANA SalesOrderItem entities.
+    // Note the S/4 field names: material -> product, unit -> requestedQuantityIsoUnit
+    // (S/4 expects the ISO unit code, e.g. "PCE", here — not the SAP-internal code).
+    // Do not send salesOrderItem: S/4 rejects external item numbering through
+    // this channel ("External numbering is not supported"), so let it auto-number.
+    const items = input.items.map((it) =>
+      service.salesOrderItemApi
+        .entityBuilder()
+        .product(it.material)
+        .requestedQuantity(new BigNumber(it.requestedQuantity))
+        .requestedQuantityIsoUnit(it.requestedQuantityUnit)
+        .build()
+    );
+
     const newOrder = api.entityBuilder()
       .salesOrderType(input.salesOrderType)
       .salesOrganization(input.salesOrganization)
@@ -666,18 +761,32 @@ export class CatalogService extends cds.ApplicationService {
       .organizationDivision(input.organizationDivision)
       .salesDistrict(input.salesDistrict)
       .soldToParty(input.soldToParty)
+      .item(items)
       .build();
 
-    const created = await api.requestBuilder()
-      .create(newOrder)
-      .execute({ url: cfg.url, username: cfg.username, password: cfg.password });
+    // The SDK converts the camelCase entity to PascalCase OData on the wire,
+    // so log the target URL; the real diagnostic is the S/4 error body below.
+    console.log('[createSalesOrder] →', cfg.url + '/SalesOrder');
 
-    return {
-      salesOrder: created.salesOrder,
-      salesOrderType: created.salesOrderType ?? '',
-      soldToParty: created.soldToParty ?? '',
-      salesOrganization: created.salesOrganization ?? '',
-    };
+    try {
+      const created = await api.requestBuilder()
+        .create(newOrder)
+        .execute({ url: cfg.url, username: cfg.username, password: cfg.password });
+
+      return {
+        salesOrder: created.salesOrder,
+        salesOrderType: created.salesOrderType ?? '',
+        soldToParty: created.soldToParty ?? '',
+        salesOrganization: created.salesOrganization ?? '',
+      };
+    } catch (err: any) {
+      // Surface the real S/4 response instead of a generic 500.
+      const status = err?.response?.status ?? err?.status;
+      const body = err?.response?.data ?? err?.rootCause?.response?.data;
+      console.error('[createSalesOrder] S/4 error status:', status);
+      console.error('[createSalesOrder] S/4 error body:', JSON.stringify(body, null, 2));
+      req.reject(status ?? 500, body?.error?.message ?? err?.message ?? 'S/4 call failed');
+    }
   };
 }
 ```
@@ -690,6 +799,7 @@ export class CatalogService extends cds.ApplicationService {
 
 ```javascript
 const cds = require('@sap/cds');
+const BigNumber = require('bignumber.js');
 const { loadS4Config } = require('./lib/config-loader');
 const { parseSalesOrder } = require('./lib/payload-parser');
 const { sapS4OpSalesorder0001V1: salesOrderService } = require('./src/generated/sap-s4-OP_SALESORDER_0001-v1');
@@ -721,7 +831,18 @@ module.exports = class CatalogService extends cds.ApplicationService {
     const cfg = loadS4Config();
     const input = parseSalesOrder(req.data.order);
 
-    const api = salesOrderService().salesOrderApi;
+    const service = salesOrderService();
+    const api = service.salesOrderApi;
+
+    const items = input.items.map((it) =>
+      service.salesOrderItemApi
+        .entityBuilder()
+        .product(it.material)
+        .requestedQuantity(new BigNumber(it.requestedQuantity))
+        .requestedQuantityIsoUnit(it.requestedQuantityUnit)
+        .build()
+    );
+
     const newOrder = api.entityBuilder()
       .salesOrderType(input.salesOrderType)
       .salesOrganization(input.salesOrganization)
@@ -729,18 +850,30 @@ module.exports = class CatalogService extends cds.ApplicationService {
       .organizationDivision(input.organizationDivision)
       .salesDistrict(input.salesDistrict)
       .soldToParty(input.soldToParty)
+      .item(items)
       .build();
 
-    const created = await api.requestBuilder()
-      .create(newOrder)
-      .execute({ url: cfg.url, username: cfg.username, password: cfg.password });
+    console.log('[createSalesOrder] →', cfg.url + '/SalesOrder');
 
-    return {
-      salesOrder: created.salesOrder,
-      salesOrderType: created.salesOrderType || '',
-      soldToParty: created.soldToParty || '',
-      salesOrganization: created.salesOrganization || '',
-    };
+    try {
+      const created = await api.requestBuilder()
+        .create(newOrder)
+        .execute({ url: cfg.url, username: cfg.username, password: cfg.password });
+
+      return {
+        salesOrder: created.salesOrder,
+        salesOrderType: created.salesOrderType || '',
+        soldToParty: created.soldToParty || '',
+        salesOrganization: created.salesOrganization || '',
+      };
+    } catch (err) {
+      const status = (err && err.response && err.response.status) || err.status;
+      const body = (err && err.response && err.response.data) ||
+                   (err && err.rootCause && err.rootCause.response && err.rootCause.response.data);
+      console.error('[createSalesOrder] S/4 error status:', status);
+      console.error('[createSalesOrder] S/4 error body:', JSON.stringify(body, null, 2));
+      req.reject(status || 500, (body && body.error && body.error.message) || err.message || 'S/4 call failed');
+    }
   };
 };
 ```
@@ -754,10 +887,11 @@ module.exports = class CatalogService extends cds.ApplicationService {
 ## ✅ Step 3 checklist
 
 - [ ] `srv/types/sales-order.d.ts` holds all reusable interfaces.
-- [ ] `config-loader.ts` reads `.env` and provides `isODataV2` / `isODataV4` type guards.
+- [ ] `config-loader.ts` reads host + credentials from `.env`, appends the service path in code, and provides `isODataV2` / `isODataV4` type guards.
 - [ ] `payload-parser.ts` validates unknown JSON into a typed `SalesOrderInput`.
-- [ ] `getSalesOrders` consumes GET via the generated request builder.
-- [ ] `createSalesOrder` consumes POST via the entity builder.
+- [ ] `getSalesOrders` consumes GET via the request builder (header fields).
+- [ ] `createSalesOrder` builds line items with `salesOrderItemApi`, attaches them with `.item(...)`, and POSTs the order (with `try/catch` surfacing the real S/4 error).
+- [ ] `bignumber.js` installed (`npm i bignumber.js`).
 - [ ] `npx tsc --noEmit` is clean.
 
 Continue to **`step4_local_testing_destination.md`** to test against the live system.
