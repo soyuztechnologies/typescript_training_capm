@@ -141,6 +141,118 @@ What changed, explained simply:
 
 ---
 
+## 2.1b — 🛠️ Troubleshooting: `Cannot find module 'sap/ui/core/UIComponent'`
+
+The moment you save `Component.ts`, the editor may underline the very first import in red:
+
+```text
+Cannot find module 'sap/ui/core/UIComponent' or its
+corresponding type declarations. ts(2307)
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Concept — why this happens:</strong> TypeScript has <strong>no idea</strong> what <code>sap/ui/core/UIComponent</code> is. UI5 is not your code and not a normal npm package — its module declarations live in a separate "types" package. Until that package is <strong>installed</strong> and <strong>pointed to</strong> by <code>tsconfig.json</code>, every <code>import ... from "sap/..."</code> is an unknown word to the compiler. This is the first <code>sap/...</code> import in the whole migration, so this is the first place the error can appear.</em>
+</div>
+
+Fix it with these three checks, in order:
+
+### ① Make sure the UI5 types are actually installed
+
+```bash
+# from the manageorder project root
+npm install --save-dev @sapui5/types@1.149.0
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note:</strong> The version <strong>must match the UI5 version the app bootstraps with</strong> — this app loads <code>1.149.0</code> in <code>webapp/index.html</code>, so install <code>@sapui5/types@1.149.0</code>. Also use the <strong>right package</strong>: modern ESM imports (<code>import X from "sap/..."</code>) need <code>@sapui5/types</code>. The older <code>@sapui5/ts-types</code> / <code>@sapui5/ts-types-esm</code> packages are deprecated and will <em>not</em> resolve these imports.
+</div>
+
+Confirm the folder really exists afterwards:
+
+```bash
+# you should see a long list of .d.ts files
+dir node_modules\@sapui5\types\types
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+### ② Point `tsconfig.json` at those types
+
+The `tsconfig.json` from Step 1 already does this — double-check the two lines are present and spelled exactly like this:
+
+<table>
+<tr>
+<th>❌ Broken (TS can't find UI5)</th>
+<th>✅ Fixed</th>
+</tr>
+<tr>
+<td valign="top">
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "node",
+    "strict": true
+    // ❌ no "types" → UI5 modules unknown
+  },
+  "include": ["webapp/**/*"]
+}
+```
+
+</td>
+<td valign="top">
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "node",
+    "strict": true,
+    "typeRoots": [
+      "node_modules/@types",
+      "node_modules/@sapui5/types"
+    ],
+    "types": ["@sapui5/types"]
+  },
+  "include": ["webapp/**/*"]
+}
+```
+
+</td>
+</tr>
+</table>
+
+<sub><b>code by anubhav trainings</b></sub>
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Concept — <code>"types"</code> array:</strong> it tells TypeScript "load these declaration packages globally". <code>@sapui5/types</code> ships a giant set of <code>declare module "sap/ui/core/UIComponent"</code> statements. Listing it in <code>"types"</code> is what makes <code>sap/...</code> a <strong>known word</strong>. Without that line the package sits in <code>node_modules</code> but is never read.</em>
+</div>
+
+### ③ Restart the TypeScript language server
+
+This is the step everyone forgets. VS Code caches types when the project opens; it does **not** notice a freshly installed package on its own.
+
+```text
+Press Ctrl+Shift+P  →  type "TypeScript: Restart TS Server"  →  Enter
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note:</strong> If you ran <code>npm install</code> correctly and the <code>tsconfig.json</code> is right but the red squiggle <strong>still</strong> shows, it is almost always a stale TS server. Restarting it (or just reopening the project) clears the error. No code change is needed.
+</div>
+
+After these three checks, hover over `UIComponent` in `Component.ts` — the editor should now show its full type, and the `ts(2307)` error is gone.
+
+---
+
 ## 2.2 — Update `model/models.js` ➜ `model/models.ts`
 
 `Component.ts` now imports `createDeviceModel` as a **named export**, so we adjust the helper to export it by name and add the return type.
