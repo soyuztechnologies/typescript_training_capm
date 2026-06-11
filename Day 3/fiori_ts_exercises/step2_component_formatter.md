@@ -13,7 +13,7 @@
 | Component | `Component.js` ➜ `Component.ts` | `UIComponent.extend(...)` ➜ `class Component extends UIComponent` |
 | Component metadata | inline object | `public static readonly metadata = { manifest: "json", interfaces: [...] }` |
 | Formatter | `util/formatter.js` ➜ `util/formatter.ts` | each function gets `(code: string): string` types |
-| Lifecycle | `init: function () {...}` | `public init(): void {...}` + `super.init()` |
+| Lifecycle | `init: function () {...}` | `public override init(): void {...}` + `super.init()` |
 | Verify | `npm run start` | app renders; `.js` controllers untouched |
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
@@ -98,7 +98,7 @@ export default class Component extends UIComponent {
         interfaces: ["sap.ui.core.IAsyncContentCreation"]
     };
 
-    public init(): void {
+    public override init(): void {
         // call the base component's init function
         super.init();
 
@@ -121,6 +121,7 @@ What changed, explained simply:
 
 | Old JS | New TS | Why |
 |--------|--------|-----|
+| `init: function () {…}` | `public override init() {…}` | `init` overrides `UIComponent.init`, and `noImplicitOverride` (Step 1) requires the `override` keyword |
 | `UIComponent.prototype.init.apply(this, arguments)` | `super.init()` | real classes have `super` — cleaner and typed |
 | `metadata: { manifest: "json" }` | `static readonly metadata = {...}` | belongs to the class, not the instance |
 | _(not declared)_ | `interfaces: ["sap.ui.core.IAsyncContentCreation"]` | opt in to **async** root-view & routing creation — loads views without blocking the browser |
@@ -162,27 +163,27 @@ Fix it with these three checks, in order:
 
 ```bash
 # from the manageorder project root
-npm install --save-dev @sapui5/types@1.149.0
+npm install --save-dev @openui5/ts-types-esm@1.149.0
 ```
 
 <sub><b>code by anubhav trainings</b></sub>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note:</strong> The version <strong>must match the UI5 version the app bootstraps with</strong> — this app loads <code>1.149.0</code> in <code>webapp/index.html</code>, so install <code>@sapui5/types@1.149.0</code>. Also use the <strong>right package</strong>: modern ESM imports (<code>import X from "sap/..."</code>) need <code>@sapui5/types</code>. The older <code>@sapui5/ts-types</code> / <code>@sapui5/ts-types-esm</code> packages are deprecated and will <em>not</em> resolve these imports.
+📌 <strong>Note:</strong> The version <strong>must match the UI5 version the app bootstraps with</strong> — this app loads <code>1.149.0</code> in <code>webapp/index.html</code>, so install <code>@openui5/ts-types-esm@1.149.0</code>. Use a package that ships the <strong>ESM module declarations</strong> (the <code>import X from "sap/..."</code> style): the free <strong>OpenUI5</strong> set is <code>@openui5/ts-types-esm</code>; the licensed <strong>SAPUI5</strong> equivalent is <code>@sapui5/types</code>. Pick one and keep <code>tsconfig.json</code> pointing at the same one.
 </div>
 
 Confirm the folder really exists afterwards:
 
 ```bash
-# you should see a long list of .d.ts files
-dir node_modules\@sapui5\types\types
+# you should see a tree of sap/... .d.ts files
+dir node_modules\@openui5\ts-types-esm\types
 ```
 
 <sub><b>code by anubhav trainings</b></sub>
 
 ### ② Point `tsconfig.json` at those types
 
-The `tsconfig.json` from Step 1 already does this — double-check the two lines are present and spelled exactly like this:
+The `tsconfig.json` from Step 1 already does this — double-check the `types` line is present and points at the **same package you installed**:
 
 <table>
 <tr>
@@ -192,36 +193,31 @@ The `tsconfig.json` from Step 1 already does this — double-check the two lines
 <tr>
 <td valign="top">
 
-```json
+```jsonc
 {
   "compilerOptions": {
     "target": "ES2022",
     "module": "ES2022",
-    "moduleResolution": "node",
-    "strict": true
+    "moduleResolution": "bundler"
     // ❌ no "types" → UI5 modules unknown
   },
-  "include": ["webapp/**/*"]
+  "include": ["./webapp/**/*"]
 }
 ```
 
 </td>
 <td valign="top">
 
-```json
+```jsonc
 {
   "compilerOptions": {
     "target": "ES2022",
     "module": "ES2022",
-    "moduleResolution": "node",
-    "strict": true,
-    "typeRoots": [
-      "node_modules/@types",
-      "node_modules/@sapui5/types"
-    ],
-    "types": ["@sapui5/types"]
+    "moduleResolution": "bundler",
+    // ✅ loads every sap/... declaration
+    "types": ["@openui5/ts-types-esm"]
   },
-  "include": ["webapp/**/*"]
+  "include": ["./webapp/**/*"]
 }
 ```
 
@@ -232,7 +228,7 @@ The `tsconfig.json` from Step 1 already does this — double-check the two lines
 <sub><b>code by anubhav trainings</b></sub>
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
-<em>💡 <strong>Concept — <code>"types"</code> array:</strong> it tells TypeScript "load these declaration packages globally". <code>@sapui5/types</code> ships a giant set of <code>declare module "sap/ui/core/UIComponent"</code> statements. Listing it in <code>"types"</code> is what makes <code>sap/...</code> a <strong>known word</strong>. Without that line the package sits in <code>node_modules</code> but is never read.</em>
+<em>💡 <strong>Concept — <code>"types"</code> array:</strong> it tells TypeScript "load these declaration packages globally". <code>@openui5/ts-types-esm</code> ships a giant set of <code>declare module "sap/ui/core/UIComponent"</code> statements. Listing it in <code>"types"</code> is what makes <code>sap/...</code> a <strong>known word</strong>. Without that line the package sits in <code>node_modules</code> but is never read.</em>
 </div>
 
 ### ③ Restart the TypeScript language server
@@ -497,7 +493,7 @@ export default class Component extends UIComponent {
         interfaces: ["sap.ui.core.IAsyncContentCreation"]
     };
 
-    public init(): void {
+    public override init(): void {
         // call the base component's init function
         super.init();
 

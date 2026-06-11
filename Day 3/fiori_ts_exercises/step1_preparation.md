@@ -12,7 +12,7 @@
 |--------|----------------|-----|
 | Install transpiler | `npm i -D ui5-tooling-transpile` | turns `.ts` into UI5-style `.js` on the fly |
 | Install compiler | `npm i -D typescript` | the `tsc` type-checker |
-| Install UI5 types | `npm i -D @sapui5/types` | teaches TypeScript what `sap.m.Button` etc. look like |
+| Install UI5 types | `npm i -D @openui5/ts-types-esm` | teaches TypeScript what `sap.m.Button` etc. look like |
 | Add middleware | `ui5.yaml` → `server.customMiddleware` | transpile while you **serve** |
 | Add build task | `ui5.yaml` → `builder.customTasks` | transpile while you **build** |
 | Add compiler config | `tsconfig.json` | tells `tsc` how strict to be |
@@ -48,7 +48,7 @@ Run these in the **root of the `manageorder` project** (the folder that holds `u
 ```bash
 npm install --save-dev typescript
 npm install --save-dev ui5-tooling-transpile
-npm install --save-dev @sapui5/types
+npm install --save-dev @openui5/ts-types-esm
 npm install --save-dev @ui5/cli
 ```
 
@@ -99,7 +99,7 @@ npm install --save-dev @ui5/cli
     "ts-typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@sapui5/types": "1.149.0",
+    "@openui5/ts-types-esm": "1.149.0",
     "@ui5/cli": "^4.0.0",
     "typescript": "^5.5.0",
     "ui5-tooling-transpile": "^3.0.0"
@@ -114,7 +114,7 @@ npm install --save-dev @ui5/cli
 <sub><b>code by anubhav trainings</b></sub>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note:</strong> Match the <code>@sapui5/types</code> version to the UI5 version your app bootstraps with. In <code>webapp/index.html</code> this app loads <code>1.149.0</code>, so we pin the types to <code>1.149.0</code> too. Mismatched versions = wrong autocomplete.
+📌 <strong>Note:</strong> Match the <code>@openui5/ts-types-esm</code> version to the UI5 version your app bootstraps with. In <code>webapp/index.html</code> this app loads <code>1.149.0</code>, so we pin the types to <code>1.149.0</code> too. Mismatched versions = wrong autocomplete. (<code>@openui5/ts-types-esm</code> is the free OpenUI5 type set; the SAPUI5 equivalent is <code>@sapui5/types</code> — pick one and stay consistent.)
 </div>
 
 ---
@@ -191,28 +191,70 @@ What each new line means, in plain words:
 <em>💡 <strong>Concept — <code>tsconfig.json</code>:</strong> the rule-book for the TypeScript compiler. It answers three questions: <strong>(1)</strong> which files to check, <strong>(2)</strong> how modern the JavaScript may be, and <strong>(3)</strong> how strict to be about mistakes.</em>
 </div>
 
-Create a new file **`tsconfig.json`** at the project root (next to `ui5.yaml`):
+Create a new file **`tsconfig.json`** at the project root (next to `ui5.yaml`). TypeScript allows comments in `tsconfig.json`, so we keep the explanations right inside the file:
 
-```json
+```jsonc
 {
   "compilerOptions": {
+
+    // JavaScript version to compile TO.
+    // ES2022 = class fields, async/await, optional chaining (?.),
+    // nullish coalescing (??), private members (#). UI5 1.120+ supports it.
     "target": "ES2022",
+
+    // Module system of the OUTPUT — ECMAScript Modules (import/export).
+    // ui5-tooling-transpile rewrites these into UI5's sap.ui.define(...) format.
     "module": "ES2022",
-    "moduleResolution": "node",
+
+    // How import paths resolve to real files.
+    // "bundler" reads package.json "exports" and matches the UI5 toolchain
+    // (and tools like vite/webpack). Modern recommended setting.
+    "moduleResolution": "bundler",
+
+    // Skip type-checking the .d.ts files in node_modules — faster builds,
+    // no noise from third-party type packages.
     "skipLibCheck": true,
+
+    // Let .js and .ts files live together — essential for gradual migration.
+    // Once 100% TypeScript you may set this to false.
     "allowJs": true,
-    "strict": true,
+
+    // strict:false → we adopt strictness GRADUALLY via the flags below,
+    // instead of turning on every strict rule at once.
+    "strict": false,
+
+    // Every value must have a known type — no silent "any".
     "noImplicitAny": true,
-    "strictNullChecks": true,
-    "rootDir": "webapp",
-    "baseUrl": "./",
+
+    // When overriding a parent-class method you MUST write the 'override'
+    // keyword. Stops accidental name clashes with the UI5 base classes.
+    "noImplicitOverride": true,
+
+    // Allow @decorator syntax used by some advanced UI5 TS patterns.
+    "experimentalDecorators": true,
+
+    // Emit .js.map files so DevTools shows your original .ts when debugging.
+    "sourceMap": true,
+
+    // Built-in type libraries: ES2022 standard library + browser DOM
+    // (window, document, history…). DOM is needed e.g. for window.history.go().
+    "lib": ["ES2022", "DOM"],
+
+    // UI5 type-definitions package — provides every "sap/..." module declaration.
+    "types": ["@openui5/ts-types-esm"],
+
+    // Map the app namespace to its source folder (compile-time resolution only;
+    // at runtime UI5's loader resolves the real files).
     "paths": {
-      "com/ats/manageorder/*": ["webapp/*"]
-    },
-    "typeRoots": ["node_modules/@types", "node_modules/@sapui5/types"],
-    "types": ["@sapui5/types"]
+      "com/ats/manageorder/*": ["./webapp/*"]
+    }
   },
-  "include": ["webapp/**/*"]
+
+  // Compile everything under webapp/
+  "include": ["./webapp/**/*"],
+
+  // Ignore these during compilation
+  "exclude": ["node_modules", "dist", "**/*.d.ts"]
 }
 ```
 
@@ -221,13 +263,20 @@ Create a new file **`tsconfig.json`** at the project root (next to `ui5.yaml`):
 The lines that matter most for a school-simple explanation:
 
 - **`"target": "ES2022"`** — "you may write modern JavaScript; the transpiler handles old browsers".
+- **`"moduleResolution": "bundler"`** — resolves imports the same way the UI5 toolchain does (reads the `exports` map), so `sap/...` and your own namespace both line up.
 - **`"allowJs": true`** — *the magic switch for hybrid mode*: it lets `.js` and `.ts` files sit in the same project without complaints.
-- **`"strict": true`** — "warn me about every risky thing" — this is what makes TypeScript valuable.
+- **`"strict": false` + individual flags** — instead of switching on *every* strict rule at once, we turn on the ones we want now (`noImplicitAny`, `noImplicitOverride`) and tighten later. This keeps a real-world migration moving.
+- **`"noImplicitOverride": true`** — any method that overrides a UI5 base method (like `init` or `onInit`) must say `override`. We will see this in Steps 2 and 3.
+- **`"lib": ["ES2022", "DOM"]`** — teaches TypeScript about browser objects like `window` and `document` (used by `View3`'s back-navigation).
+- **`"types": ["@openui5/ts-types-esm"]`** — loads the UI5 type definitions so `sap.m.Button`, `Controller`, etc. are known.
 - **`"paths"`** — maps the app's namespace `com/ats/manageorder/...` to the `webapp/` folder, so imports resolve correctly.
-- **`"types": ["@sapui5/types"]`** — loads the UI5 type definitions so `sap.m.Button`, `Controller`, etc. are known.
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
 📌 <strong>Note:</strong> <code>allowJs: true</code> is the line that makes the <strong>whole gradual migration possible</strong>. Remove it and TypeScript would demand every file be <code>.ts</code> on day one — exactly the "big bang" we are avoiding.
+</div>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note — <code>noImplicitOverride</code> has a visible effect:</strong> from here on, every lifecycle hook that overrides a UI5 base method must be written with the <code>override</code> keyword (e.g. <code>public override init()</code>, <code>public override onInit()</code>). If you forget it, the compiler raises <code>TS4114: This member must have an 'override' modifier</code>. Steps 2 and 3 already use <code>override</code> everywhere it is required.
 </div>
 
 ---
@@ -331,26 +380,27 @@ Then check three things:
 <details open>
 <summary><b>tsconfig.json</b> (new file)</summary>
 
-```json
+```jsonc
 {
   "compilerOptions": {
     "target": "ES2022",
     "module": "ES2022",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "skipLibCheck": true,
     "allowJs": true,
-    "strict": true,
+    "strict": false,
     "noImplicitAny": true,
-    "strictNullChecks": true,
-    "rootDir": "webapp",
-    "baseUrl": "./",
+    "noImplicitOverride": true,
+    "experimentalDecorators": true,
+    "sourceMap": true,
+    "lib": ["ES2022", "DOM"],
+    "types": ["@openui5/ts-types-esm"],
     "paths": {
-      "com/ats/manageorder/*": ["webapp/*"]
-    },
-    "typeRoots": ["node_modules/@types", "node_modules/@sapui5/types"],
-    "types": ["@sapui5/types"]
+      "com/ats/manageorder/*": ["./webapp/*"]
+    }
   },
-  "include": ["webapp/**/*"]
+  "include": ["./webapp/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.d.ts"]
 }
 ```
 
