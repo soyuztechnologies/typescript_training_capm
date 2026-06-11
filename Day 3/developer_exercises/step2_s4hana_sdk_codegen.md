@@ -8,14 +8,13 @@
 
 | Task | Command / Value |
 |------|-----------------|
-| Remote service URL | `https://s4hana10.saraswatitechnologies.in:44310/sap/opu/odata4/sap/api_salesorder/srvd_a2x/sap/salesorder/0001/SalesOrder` |
+| Remote service URL | `https://122.162.240.164:8010/sap/opu/odata4/sap/api_salesorder/srvd_a2x/sap/salesorder/0001/SalesOrder` |
 | EDMX source | SAP Business Accelerator Hub → API → *Details* → Download specification (EDMX) |
 | Install generator | `npm i -D @sap-cloud-sdk/generator` |
 | Install OData V4 runtime | `npm i @sap-cloud-sdk/odata-v4` |
 | Put EDMX here | `srv/external/SalesOrder.edmx` |
 | Fix EDMX version | edit first line: `Version="4.01"` → `Version="4.0"` |
 | Register service in CAP | `cds import srv/external/SalesOrder.edmx --as cds` |
-| Skip DB tables for remote entities | `annotate ... with @cds.persistence.exists;` |
 | Generate client | `npx generate-odata-client --input srv/external --outputDir srv/src/generated --skipValidation` |
 | Secrets live in | `.env` (git-ignored, host+port only) |
 
@@ -32,7 +31,7 @@
 We connect to the S/4HANA **Sales Order** OData service:
 
 ```text
-https://s4hana10.saraswatitechnologies.in:44310/sap/opu/odata4/sap/api_salesorder/srvd_a2x/sap/salesorder/0001/SalesOrder
+https://122.162.240.164:8010/sap/opu/odata4/sap/api_salesorder/srvd_a2x/sap/salesorder/0001/SalesOrder
 ```
 
 <sub>**code by anubhav trainings**</sub>
@@ -54,7 +53,7 @@ Create `.env` in the project root:
 ```bash
 # --- S/4HANA Sales Order service ---
 # S4_URL is the HOST and PORT only — no service path.
-S4_URL=https://s4hana10.saraswatitechnologies.in:44310
+S4_URL=https://122.162.240.164:8010
 S4_USERNAME=YOUR_S4_USER
 S4_PASSWORD=YOUR_S4_PASSWORD
 ```
@@ -62,7 +61,7 @@ S4_PASSWORD=YOUR_S4_PASSWORD
 <sub>**code by anubhav trainings**</sub>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note — host only, no path:</strong> <code>S4_URL</code> holds <strong>only</strong> the host and port (<code>https://s4hana10.saraswatitechnologies.in:44310</code>). The long service path (<code>/sap/opu/odata4/sap/api_salesorder/.../0001</code>) does <strong>not</strong> belong here — it comes from the imported service definition (<code>cds import</code>, section 2.4) and from the BTP Destination (Step 4). Keeping host and path separate is what lets the same credentials serve many paths on the same system.
+📌 <strong>Note — host only, no path:</strong> <code>S4_URL</code> holds <strong>only</strong> the host and port (<code>https://122.162.240.164:8010</code>). The long service path (<code>/sap/opu/odata4/sap/api_salesorder/.../0001</code>) does <strong>not</strong> belong here — it comes from the imported service definition (<code>cds import</code>, section 2.4) and from the BTP Destination (Step 4). Keeping host and path separate is what lets the same credentials serve many paths on the same system.
 </div>
 
 Add it to `.gitignore`:
@@ -305,7 +304,7 @@ After generation you get a structure like this:
 
 ```text
 srv/src/generated/
-└── sales-order-service/
+└── sap-s4-OP_SALESORDER_0001-v1/    # folder named after the EDMX service
     ├── index.ts                    # re-exports everything
     ├── service.ts                  # the service entry point + API container
     ├── SalesOrder.ts               # entity class for a Sales Order header
@@ -318,21 +317,25 @@ srv/src/generated/
 
 <sub>**code by anubhav trainings**</sub>
 
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note — the names come from the EDMX:</strong> the generator names the folder and the factory after the service id in the metadata. For this API that means the folder <code>sap-s4-OP_SALESORDER_0001-v1</code> and the factory function <code>sapS4OpSalesorder0001V1</code>. That is exactly the import you will write in Step 3.
+</div>
+
 ### What `service.ts` gives you
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
-<em>💡 <strong>Concept — the service object:</strong> the generated <code>service.ts</code> exports a factory function (e.g. <code>salesOrderService()</code>) that hands you every entity's API in one place. Each entity API exposes a <strong>request builder</strong> with typed methods — <code>getAll()</code>, <code>getByKey()</code>, <code>create()</code>, <code>update()</code>, <code>delete()</code>.</em>
+<em>💡 <strong>Concept — the service object:</strong> the generated <code>service.ts</code> exports a factory function (here <code>sapS4OpSalesorder0001V1()</code>) that hands you every entity's API in one place. Each entity API exposes a <strong>request builder</strong> with typed methods — <code>getAll()</code>, <code>getByKey()</code>, <code>create()</code>, <code>update()</code>, <code>delete()</code>.</em>
 </div>
 
 A peek at the kind of class the generator wrote (illustrative — do not edit):
 
 ```typescript
-// srv/src/generated/sales-order-service/service.ts  (generated)
-export function salesOrderService(): SalesOrderService<DefaultDeSerializers> {
-  return new SalesOrderService(defaultDeSerializers);
+// srv/src/generated/sap-s4-OP_SALESORDER_0001-v1/service.ts  (generated)
+export function sapS4OpSalesorder0001V1(): SapS4OpSalesorder0001V1<DefaultDeSerializers> {
+  return new SapS4OpSalesorder0001V1(defaultDeSerializers);
 }
 
-export class SalesOrderService<DeSerializersT extends DeSerializers> {
+export class SapS4OpSalesorder0001V1<DeSerializersT extends DeSerializers> {
   // one API per entity discovered in the EDMX
   get salesOrderApi() { /* returns SalesOrderApi */ }
   get salesOrderItemApi() { /* returns SalesOrderItemApi */ }
@@ -344,7 +347,7 @@ export class SalesOrderService<DeSerializersT extends DeSerializers> {
 And the API container exposes the typed request builder:
 
 ```typescript
-// srv/src/generated/sales-order-service/SalesOrderApi.ts  (generated)
+// srv/src/generated/sap-s4-OP_SALESORDER_0001-v1/SalesOrderApi.ts  (generated)
 export class SalesOrderApi {
   requestBuilder(): SalesOrderRequestBuilder { /* ... */ }
   entityBuilder(): /* typed builder for new SalesOrder objects */;
@@ -414,28 +417,6 @@ service CatalogService {
 📌 <strong>Note:</strong> We deliberately keep our CAP types small and clean — only the fields we care about. The <em>full</em> typed S/4HANA model still lives in the generated client; this is just the public face of our mashup.
 </div>
 
-### Skip persistence for the imported EDMX entities
-
-<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
-<em>💡 <strong>Concept — why annotate persistence:</strong> when <code>cds import</code> brought the EDMX into our model, it created entities like <code>SalesOrder</code> and <code>SalesOrderItem</code>. By default <code>cds build</code> would try to create <strong>database tables</strong> for every entity it sees — but these rows live in <strong>S/4HANA</strong>, not in our database. We tell CAP "this data already exists elsewhere, do not generate a table for it" using <code>@cds.persistence.exists</code>.</em>
-</div>
-
-Create a small annotation file `srv/external/SalesOrder-persistence.cds` that points at the imported service and switches off table generation:
-
-```cds
-using { SalesOrderService } from './SalesOrder';
-
-// These entities are remote (S/4HANA). Do NOT create local DB tables for them.
-annotate SalesOrderService.SalesOrder     with @cds.persistence.exists;
-annotate SalesOrderService.SalesOrderItem with @cds.persistence.exists;
-```
-
-<sub>**code by anubhav trainings**</sub>
-
-<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note — match the real names:</strong> use the exact service and entity names that <code>cds import</code> wrote into <code>srv/external/SalesOrder.csn</code> (run <code>cds compile srv/external/SalesOrder.csn</code> to list them). <code>@cds.persistence.exists</code> tells the build "a persistence object with this name already exists, so emit no <code>CREATE TABLE</code> DDL for it" — exactly what we want for remote entities. Without it, <code>cds build</code> / HANA deploy would fail trying to create tables for data that lives in S/4HANA.
-</div>
-
 ---
 
 ## 2.8 — Regenerate the model types
@@ -458,12 +439,11 @@ capm-s4-mashup/
 ├── srv/
 │   ├── CatalogService.cds       # now includes SalesOrder function + action
 │   ├── external/
-│   │   ├── SalesOrder.edmx                # downloaded blueprint (version 4.0)
-│   │   ├── SalesOrder.csn                 # registered by `cds import`
-│   │   └── SalesOrder-persistence.cds     # @cds.persistence.exists annotations
+│   │   ├── SalesOrder.edmx      # downloaded blueprint (version 4.0)
+│   │   └── SalesOrder.csn       # registered by `cds import`
 │   └── src/
 │       └── generated/           # ← typed client written by the generator
-│           └── sales-order-service/
+│           └── sap-s4-OP_SALESORDER_0001-v1/   # folder named after the EDMX service
 │               ├── service.ts
 │               ├── SalesOrder.ts
 │               ├── SalesOrderApi.ts
@@ -482,7 +462,6 @@ capm-s4-mashup/
 - [ ] EDMX first line edited: `Version="4.01"` → `Version="4.0"`.
 - [ ] `@sap-cloud-sdk/generator` (dev) and `@sap-cloud-sdk/odata-v4` (runtime) installed.
 - [ ] `cds import srv/external/SalesOrder.edmx --as cds` registered the service (`.csn` + `cds.requires` entry).
-- [ ] Imported entities annotated with `@cds.persistence.exists` so no local tables are generated.
 - [ ] `npx generate-odata-client ... --skipValidation` produced `srv/src/generated`.
 - [ ] You can open `service.ts` and identify the entity APIs and request builders.
 - [ ] `CatalogService.cds` extended with the SalesOrder function + action.

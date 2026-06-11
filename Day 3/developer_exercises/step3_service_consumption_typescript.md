@@ -12,7 +12,7 @@
 | Config loader | `srv/lib/config-loader.ts` | reads `.env`, V2/V4 type guards |
 | Payload parser | `srv/lib/payload-parser.ts` | validates + maps incoming JSON |
 | Shared types | `srv/types/sales-order.d.ts` | reusable interfaces & contracts |
-| Generated client | `srv/src/generated/...` | typed S/4HANA API (from Step 2) |
+| Generated client | `srv/src/generated/sap-s4-OP_SALESORDER_0001-v1` | typed S/4HANA API (factory `sapS4OpSalesorder0001V1`, from Step 2) |
 | Read sales orders | `salesOrderApi.requestBuilder().getAll().execute(dest)` | GET |
 | Create sales order | `salesOrderApi.requestBuilder().create(order).execute(dest)` | POST |
 
@@ -290,11 +290,15 @@ import { loadS4Config } from './lib/config-loader';
 import { parseSalesOrder } from './lib/payload-parser';
 import type { SalesOrderView } from './types/sales-order';
 
-// Generated in Step 2:
-import { salesOrderService } from './src/generated/sales-order-service';
+// Generated in Step 2 (folder + factory are named after the EDMX service):
+import { sapS4OpSalesorder0001V1 as salesOrderService } from './src/generated/sap-s4-OP_SALESORDER_0001-v1';
 ```
 
 <sub>**code by anubhav trainings**</sub>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note — why this exact import:</strong> the generator names the output folder and the factory function after the service in the EDMX. So the client lives at <code>srv/src/generated/<strong>sap-s4-OP_SALESORDER_0001-v1</strong></code> and the factory export is <code><strong>sapS4OpSalesorder0001V1</strong></code> — there is no <code>salesOrderService</code> export. We use <code>import { sapS4OpSalesorder0001V1 <strong>as</strong> salesOrderService }</code> so the rest of the code can keep the short, readable name.
+</div>
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
 <em>💡 <strong>Concept — destination:</strong> the SDK needs to know <em>where</em> and <em>with what credentials</em> to call. That bundle is a "destination". Locally we build it from <code>.env</code>; in the cloud (Step 4) it comes from a BTP Destination service.</em>
@@ -591,7 +595,7 @@ import { Material, Plant } from '#cds-models/CatalogService';
 import { loadS4Config } from './lib/config-loader';
 import { parseSalesOrder } from './lib/payload-parser';
 import type { SalesOrderView } from './types/sales-order';
-import { salesOrderService } from './src/generated/sales-order-service';
+import { sapS4OpSalesorder0001V1 as salesOrderService } from './src/generated/sap-s4-OP_SALESORDER_0001-v1';
 
 export class CatalogService extends cds.ApplicationService {
   async init(): Promise<void> {
@@ -688,7 +692,7 @@ export class CatalogService extends cds.ApplicationService {
 const cds = require('@sap/cds');
 const { loadS4Config } = require('./lib/config-loader');
 const { parseSalesOrder } = require('./lib/payload-parser');
-const { salesOrderService } = require('./src/generated/sales-order-service');
+const { sapS4OpSalesorder0001V1: salesOrderService } = require('./src/generated/sap-s4-OP_SALESORDER_0001-v1');
 
 module.exports = class CatalogService extends cds.ApplicationService {
   async init() {

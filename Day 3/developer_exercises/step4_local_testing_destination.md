@@ -38,7 +38,7 @@ In the **BTP Cockpit**:
 ```text
 Name:           S4HANA_SALESORDER
 Type:           HTTP
-URL:            https://s4hana10.saraswatitechnologies.in:44310
+URL:            https://122.162.240.164:8010
 Proxy Type:     Internet
 Authentication: BasicAuthentication
 User:           <YOUR_S4_USER>
@@ -246,7 +246,7 @@ For reference, the **raw S/4HANA V4 payload** (what the SDK sends to the system,
 Sometimes you want to confirm the system itself works before blaming your code. You can call S/4HANA directly from the same `.http` file:
 
 ```http
-@s4host = https://s4hana10.saraswatitechnologies.in:44310
+@s4host = https://122.162.240.164:8010
 @s4path = /sap/opu/odata4/sap/api_salesorder/srvd_a2x/sap/salesorder/0001
 @auth = Basic {{$dotenv S4_USERNAME}}:{{$dotenv S4_PASSWORD}}
 

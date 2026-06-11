@@ -54,7 +54,7 @@ On top of these entities we attach **three business rules** (event handlers) wri
 
 We connect to a live **S/4HANA Sales Order** OData service and expose it through the same CAP application using **fully typed, generated client code** (no hand-written interfaces).
 
-- Remote service: `https://s4hana10.saraswatitechnologies.in:44310/.../SalesOrder`
+- Remote service: `https://122.162.240.164:8010/.../SalesOrder`
 - We generate a typed client from the service's **EDMX** metadata.
 - We consume **GET** (read sales orders) and **POST** (create a sales order) operations.
 
