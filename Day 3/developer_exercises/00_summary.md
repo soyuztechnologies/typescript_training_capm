@@ -11,11 +11,12 @@
 | Create CAP project | `cds init <name> --add typescript` | Step 1 |
 | Add TS to existing project | `cds add typescript` | Step 1 |
 | CAP type definitions | `npm i -D @cap-js/cds-types` | Step 1 |
+| Generate seed data (CSV) | `cds add data` (10 plants, 20 materials) | Step 1 |
 | Run TS directly | `npx ts-node srv/server.ts` / `cds watch` | Step 1 |
 | Compile for deploy | `npx tsc` (wired into `npm run build`) | Step 1 |
 | Deploy to Cloud Foundry | `cf push` / `mbt build` + `cf deploy` | Step 1 |
 | Install SDK generator | `npm i -D @sap-cloud-sdk/generator` | Step 2 |
-| Install OData V2 runtime | `npm i @sap-cloud-sdk/odata-v2` | Step 2 |
+| Install OData V4 runtime | `npm i @sap-cloud-sdk/odata-v4` | Step 2 |
 | Generate typed client | `npx generate-odata-client --input srv/external --outputDir srv/src/generated` | Step 2 |
 | Secrets / URLs | `.env` file (never commit) | Step 2 |
 | Type guards & parsers | `config-loader.ts`, `payload-parser.ts`, `*.d.ts` | Step 3 |
@@ -36,10 +37,12 @@ We are building **one CAP service** that does two jobs at the same time:
 
 ### Part A — Local Domain Model (Step 1)
 
-Two tiny entities that live in **our** database:
+Two tiny entities that live in **our** database, linked by an **association**:
 
-- **Material** — 4 fields + a `cuid` key (auto-generated UUID).
-- **Plant** — 4 fields + a `cuid` key.
+- **Material** — 4 fields + a `cuid` key (auto-generated UUID); `plant` is an association to Plant.
+- **Plant** — 4 fields + a `cuid` key; `materials` is the reverse association back to Material.
+
+We also generate **seed/test data** with `cds add data` — **10 plants** and **20 materials** in CSV files — so the database is never empty when we test.
 
 On top of these entities we attach **three business rules** (event handlers) written in `CatalogService.ts`:
 
@@ -68,7 +71,7 @@ We connect to a live **S/4HANA Sales Order** OData service and expose it through
 <tr>
 <td style="border: 1px solid #ddd; padding: 8px;"><strong>Step 1 — Scaffold</strong></td>
 <td style="border: 1px solid #ddd; padding: 8px;">Create a TypeScript-first CAP project, wire up tooling, prove that local run AND cloud deploy work <em>before</em> any business logic.</td>
-<td style="border: 1px solid #ddd; padding: 8px;">A running CAP app with Material + Plant entities and 3 typed handlers, deployed to Cloud Foundry.</td>
+<td style="border: 1px solid #ddd; padding: 8px;">A running CAP app with associated Material + Plant entities, seed data (10 plants, 20 materials) and 3 typed handlers, deployed to Cloud Foundry.</td>
 </tr>
 <tr style="background-color: #f9f9f9;">
 <td style="border: 1px solid #ddd; padding: 8px;"><strong>Step 2 — Generate</strong></td>

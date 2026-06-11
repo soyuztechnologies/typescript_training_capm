@@ -454,7 +454,7 @@ this.on('createSalesOrder', async (req) => {
 </div>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note — items & dates:</strong> the sample payload nests items under <code>to_Item</code> and uses the V2 date format <code>/Date(1775433600000)/</code>. If your endpoint is V4, items go under a <code>_Item</code> navigation and dates are ISO (<code>2026-04-02</code>). Step 4 shows the exact V2 payload; adjust the builder's child entities to match your real service version.
+📌 <strong>Note — items & dates (OData V4):</strong> because this is a <strong>V4</strong> service, child line items are attached through the generated <code>_Item</code> navigation (an array, with <strong>no</strong> <code>results</code> wrapper) and dates are plain ISO strings such as <code>"2026-04-02"</code>. Use <code>salesOrderItemApi.entityBuilder()</code> for each item and attach them via the builder's navigation setter. Step 4 shows the full V4 payload.
 </div>
 
 ---

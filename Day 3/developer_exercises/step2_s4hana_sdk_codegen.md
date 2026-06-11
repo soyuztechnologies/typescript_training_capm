@@ -11,7 +11,6 @@
 | Remote service URL | `https://s4hana10.saraswatitechnologies.in:44310/sap/opu/odata4/sap/api_salesorder/srvd_a2x/sap/salesorder/0001/SalesOrder` |
 | EDMX source | SAP Business Accelerator Hub → API → *Details* → Download specification (EDMX) |
 | Install generator | `npm i -D @sap-cloud-sdk/generator` |
-| Install OData V2 runtime | `npm i @sap-cloud-sdk/odata-v2` |
 | Install OData V4 runtime | `npm i @sap-cloud-sdk/odata-v4` |
 | Put EDMX here | `srv/external/SalesOrder.edmx` |
 | Generate client | `npx generate-odata-client --input srv/external --outputDir srv/src/generated` |
@@ -36,7 +35,7 @@ https://s4hana10.saraswatitechnologies.in:44310/sap/opu/odata4/sap/api_salesorde
 <sub>**code by anubhav trainings**</sub>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note — version check:</strong> the URL above contains <code>odata4</code>, so it is an <strong>OData V4</strong> service. The classic Sales Order API on the SAP Hub (<code>API_SALES_ORDER_SRV</code>) is <strong>OData V2</strong>. They are not interchangeable. Install the runtime that matches your real endpoint — <code>@sap-cloud-sdk/odata-v4</code> for the URL above, or <code>@sap-cloud-sdk/odata-v2</code> for the classic V2 API. We install V2 below because the exercise calls for it; switch the import to V4 if your endpoint is V4.
+📌 <strong>Note — OData V4:</strong> the URL above contains <code>odata4</code>, so this is an <strong>OData V4</strong> service. Everything in this guide uses <strong>V4</strong>: we install <code>@sap-cloud-sdk/odata-v4</code>, the generated client targets V4, dates are ISO strings, and child entities use V4 navigation (no <code>results</code> wrapper). The generator reads the EDMX and automatically emits V4-flavoured code.
 </div>
 
 ---
@@ -148,7 +147,7 @@ srv/
 ## 2.4 — Install the SAP Cloud SDK modules
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
-<em>💡 <strong>Concept — two different SDK packages:</strong> the <strong>generator</strong> is a build-time tool (it writes code, so it is a <code>devDependency</code>). The <strong>odata-v2 / odata-v4</strong> package is a runtime library that the generated code uses to actually send HTTP requests (so it is a normal <code>dependency</code>).</em>
+<em>💡 <strong>Concept — two different SDK packages:</strong> the <strong>generator</strong> is a build-time tool (it writes code, so it is a <code>devDependency</code>). The <strong>odata-v4</strong> package is a runtime library that the generated code uses to actually send HTTP requests (so it is a normal <code>dependency</code>).</em>
 </div>
 
 Install the generator (dev-time):
@@ -159,15 +158,7 @@ npm install -D @sap-cloud-sdk/generator
 
 <sub>**code by anubhav trainings**</sub>
 
-Install the OData V2 runtime (the exercise's requirement to run OData V2 from the SDK):
-
-```bash
-npm install @sap-cloud-sdk/odata-v2
-```
-
-<sub>**code by anubhav trainings**</sub>
-
-If your endpoint is V4 (like the `odata4` URL in 2.1), also install:
+Install the OData V4 runtime — our Sales Order service is V4 (the `odata4` URL in 2.1):
 
 ```bash
 npm install @sap-cloud-sdk/odata-v4
@@ -176,7 +167,7 @@ npm install @sap-cloud-sdk/odata-v4
 <sub>**code by anubhav trainings**</sub>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note:</strong> The generator inspects the EDMX and automatically emits code that imports from the matching runtime (<code>odata-v2</code> or <code>odata-v4</code>). You just need the matching runtime package installed, or the generated code will fail to import.
+📌 <strong>Note:</strong> The generator inspects the EDMX and automatically emits code that imports from the matching runtime — here <code>@sap-cloud-sdk/odata-v4</code>. That runtime package must be installed, or the generated code will fail to import.
 </div>
 
 Reference documentation:
@@ -366,7 +357,7 @@ capm-s4-mashup/
 │               ├── SalesOrder.ts
 │               ├── SalesOrderApi.ts
 │               └── ...
-└── package.json                 # now depends on @sap-cloud-sdk/odata-v2
+└── package.json                 # now depends on @sap-cloud-sdk/odata-v4
 ```
 
 <sub>**code by anubhav trainings**</sub>
@@ -377,7 +368,7 @@ capm-s4-mashup/
 
 - [ ] `.env` created with `S4_URL`, `S4_USERNAME`, `S4_PASSWORD` and added to `.gitignore`.
 - [ ] EDMX downloaded into `srv/external/SalesOrder.edmx`.
-- [ ] `@sap-cloud-sdk/generator` (dev) and `@sap-cloud-sdk/odata-v2` (runtime) installed.
+- [ ] `@sap-cloud-sdk/generator` (dev) and `@sap-cloud-sdk/odata-v4` (runtime) installed.
 - [ ] `npx generate-odata-client ...` produced `srv/src/generated`.
 - [ ] You can open `service.ts` and identify the entity APIs and request builders.
 - [ ] `CatalogService.cds` extended with the SalesOrder function + action.
