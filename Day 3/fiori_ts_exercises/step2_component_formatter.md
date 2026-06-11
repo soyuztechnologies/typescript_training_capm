@@ -123,8 +123,17 @@ What changed, explained simply:
 |--------|--------|-----|
 | `UIComponent.prototype.init.apply(this, arguments)` | `super.init()` | real classes have `super` — cleaner and typed |
 | `metadata: { manifest: "json" }` | `static readonly metadata = {...}` | belongs to the class, not the instance |
+| _(not declared)_ | `interfaces: ["sap.ui.core.IAsyncContentCreation"]` | opt in to **async** root-view & routing creation — loads views without blocking the browser |
 | import string `"...model/models"` + `models.createDeviceModel()` | `import { createDeviceModel }` + `createDeviceModel()` | named import; the unused `Device` import is dropped |
 | `"com.ats.manageorder.Component"` string name | `@namespace com.ats.manageorder` JSDoc | the transpiler rebuilds the full name from namespace + class |
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Concept — <code>sap.ui.core.IAsyncContentCreation</code>:</strong> this is a <strong>marker interface</strong> — it carries no methods, it simply <em>flags</em> your Component so UI5 builds the root view and all routed views <strong>asynchronously</strong> (in the background) instead of synchronously (freezing the page until each view is ready). Think of it like telling a waiter "bring the dishes as they're cooked" instead of "make me wait at the door until the whole meal is plated". Declaring this one interface lets you drop the older per-view <code>"async": true</code> flags and silences UI5's synchronous-loading deprecation warnings — the modern, recommended default for every new Component.</em>
+</div>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note:</strong> The original <code>Component.js</code> never declared this interface, so the app relied on the <code>"async": true</code> hints inside <code>manifest.json</code>'s routing config. Adding <code>IAsyncContentCreation</code> at the Component level is the cleaner, single source of truth — it guarantees the root view itself (not just routed targets) is also created asynchronously.
+</div>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
 📌 <strong>Note:</strong> The <code>@namespace com.ats.manageorder</code> comment is <strong>not decoration</strong> — the transpiler reads it to compute the runtime name <code>com.ats.manageorder.Component</code>. Delete it and UI5 cannot find your component. Every converted class file needs the right <code>@namespace</code>.
