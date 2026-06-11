@@ -8,13 +8,13 @@
 
 | Task | Command / Value |
 |------|-----------------|
-| Remote service URL | `https://122.162.240.164:8010/sap/opu/odata4/sap/api_salesorder/srvd_a2x/sap/salesorder/0001/SalesOrder` |
+| Remote service URL | `http://122.162.240.164:8010/sap/opu/odata4/sap/api_salesorder/srvd_a2x/sap/salesorder/0001/SalesOrder` |
 | EDMX source | SAP Business Accelerator Hub → API → *Details* → Download specification (EDMX) |
 | Install generator | `npm i -D @sap-cloud-sdk/generator` |
 | Install OData V4 runtime | `npm i @sap-cloud-sdk/odata-v4` |
-| Put EDMX here | `srv/external/SalesOrder.edmx` |
+| Put EDMX here | `srv/external/sap-s4-OP_SALESORDER_0001-v1.edmx` |
 | Fix EDMX version | edit first line: `Version="4.01"` → `Version="4.0"` |
-| Register service in CAP | `cds import srv/external/SalesOrder.edmx --as cds` |
+| Register service in CAP | `cds import srv/external/sap-s4-OP_SALESORDER_0001-v1.edmx --as cds` |
 | Generate client | `npx generate-odata-client --input srv/external --outputDir srv/src/generated --skipValidation` |
 | Secrets live in | `.env` (git-ignored, host+port only) |
 
@@ -31,7 +31,7 @@
 We connect to the S/4HANA **Sales Order** OData service:
 
 ```text
-https://122.162.240.164:8010/sap/opu/odata4/sap/api_salesorder/srvd_a2x/sap/salesorder/0001/SalesOrder
+http://122.162.240.164:8010/sap/opu/odata4/sap/api_salesorder/srvd_a2x/sap/salesorder/0001/SalesOrder
 ```
 
 <sub>**code by anubhav trainings**</sub>
@@ -53,7 +53,7 @@ Create `.env` in the project root:
 ```bash
 # --- S/4HANA Sales Order service ---
 # S4_URL is the HOST and PORT only — no service path.
-S4_URL=https://122.162.240.164:8010
+S4_URL=http://122.162.240.164:8010
 S4_USERNAME=YOUR_S4_USER
 S4_PASSWORD=YOUR_S4_PASSWORD
 ```
@@ -61,7 +61,7 @@ S4_PASSWORD=YOUR_S4_PASSWORD
 <sub>**code by anubhav trainings**</sub>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note — host only, no path:</strong> <code>S4_URL</code> holds <strong>only</strong> the host and port (<code>https://122.162.240.164:8010</code>). The long service path (<code>/sap/opu/odata4/sap/api_salesorder/.../0001</code>) does <strong>not</strong> belong here — it comes from the imported service definition (<code>cds import</code>, section 2.4) and from the BTP Destination (Step 4). Keeping host and path separate is what lets the same credentials serve many paths on the same system.
+📌 <strong>Note — host only, no path:</strong> <code>S4_URL</code> holds <strong>only</strong> the host and port (<code>http://122.162.240.164:8010</code>). The long service path (<code>/sap/opu/odata4/sap/api_salesorder/.../0001</code>) does <strong>not</strong> belong here — it comes from the imported service definition (<code>cds import</code>, section 2.4) and from the BTP Destination (Step 4). Keeping host and path separate is what lets the same credentials serve many paths on the same system.
 </div>
 
 Add it to `.gitignore`:
@@ -140,13 +140,13 @@ https://api.sap.com/api/sap-s4-OP_SALESORDER_0001-v1/overview
 ```text
 srv/
 └── external/
-    └── SalesOrder.edmx
+    └── sap-s4-OP_SALESORDER_0001-v1.edmx
 ```
 
 <sub>**code by anubhav trainings**</sub>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note:</strong> If you cannot reach the Hub, you can fetch the metadata directly from the live system by appending <code>/$metadata</code> to the service URL and saving the response as <code>SalesOrder.edmx</code>. Either way, the file must be valid EDMX XML.
+📌 <strong>Note:</strong> If you cannot reach the Hub, you can fetch the metadata directly from the live system by appending <code>/$metadata</code> to the service URL and saving the response as <code>sap-s4-OP_SALESORDER_0001-v1.edmx</code>. Either way, the file must be valid EDMX XML.
 </div>
 
 ### Fix the downloaded EDMX (version 4.01 → 4.0)
@@ -155,7 +155,7 @@ srv/
 <em>💡 <strong>Concept — EDMX version:</strong> the first line of the EDMX declares which OData version the document uses. The file from the Hub is marked <code>Version="4.01"</code>, but the CAP importer and the Cloud SDK generator expect plain <code>Version="4.0"</code>. The downloaded file therefore trips them up — we fix it with a one-character edit <strong>before</strong> running <code>cds import</code>.</em>
 </div>
 
-Open `srv/external/SalesOrder.edmx` and look at the very first line. You will see something like:
+Open `srv/external/sap-s4-OP_SALESORDER_0001-v1.edmx` and look at the very first line. You will see something like:
 
 ```xml
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.01">
@@ -203,6 +203,10 @@ npm install @sap-cloud-sdk/odata-v4
 📌 <strong>Note:</strong> The generator inspects the EDMX and automatically emits code that imports from the matching runtime — here <code>@sap-cloud-sdk/odata-v4</code>. That runtime package must be installed, or the generated code will fail to import.
 </div>
 
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note — peer packages:</strong> the OData V4 runtime relies on three companion SAP Cloud SDK packages — <code>@sap-cloud-sdk/connectivity</code>, <code>@sap-cloud-sdk/http-client</code> and <code>@sap-cloud-sdk/resilience</code>. npm usually pulls them in automatically; if you hit a "cannot find module" at runtime, install them explicitly with <code>npm i @sap-cloud-sdk/connectivity @sap-cloud-sdk/http-client @sap-cloud-sdk/resilience</code>. (Likewise, <code>bignumber.js</code> used in Step 3 ships transitively with the SDK.)
+</div>
+
 Reference documentation:
 
 ```text
@@ -214,13 +218,13 @@ https://sap.github.io/cloud-sdk/docs/js/features/odata/generate-client
 ### Register the external service with `cds import`
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
-<em>💡 <strong>Concept — `cds import`:</strong> downloading the EDMX (section 2.3) only gives you a file. <code>cds import</code> is the CAP command that <strong>registers</strong> that file as a known external service in your project. It copies the EDMX into <code>srv/external/</code>, creates a CAP-readable <code>.csn</code> next to it, and adds a <code>cds.requires</code> entry to <code>package.json</code> — so CAP knows the service's name, kind (<code>odata-v4</code>) and model.</em>
+<em>💡 <strong>Concept — `cds import`:</strong> downloading the EDMX (section 2.3) only gives you a file. <code>cds import</code> is the CAP command that <strong>registers</strong> that file as a known external service in your project. It copies the EDMX into <code>srv/external/</code>, creates a CAP-readable <code>.csn</code> next to it, and adds a <code>cds.requires</code> entry to <code>package.json</code> — so CAP knows the service's name, kind (<code>odata</code>) and model.</em>
 </div>
 
 Run it against the EDMX you downloaded (use your real file name):
 
 ```bash
-cds import srv/external/SalesOrder.edmx --as cds
+cds import srv/external/sap-s4-OP_SALESORDER_0001-v1.edmx --as cds
 ```
 
 <sub>**code by anubhav trainings**</sub>
@@ -232,8 +236,8 @@ After it runs, two things change:
 ```text
 srv/
 └── external/
-    ├── SalesOrder.edmx     # original metadata
-    └── SalesOrder.csn      # CAP's compiled view of it (created by cds import)
+    ├── sap-s4-OP_SALESORDER_0001-v1.edmx     # original metadata
+    └── sap-s4-OP_SALESORDER_0001-v1.csn      # CAP's compiled view of it (created by cds import)
 ```
 
 <sub>**code by anubhav trainings**</sub>
@@ -244,9 +248,9 @@ srv/
 {
   "cds": {
     "requires": {
-      "SalesOrder": {
-        "kind": "odata-v4",
-        "model": "srv/external/SalesOrder"
+      "sap_s4_OP_SALESORDER_0001_v1": {
+        "kind": "odata",
+        "model": "srv/external/sap-s4-OP_SALESORDER_0001-v1"
       }
     }
   }
@@ -256,7 +260,7 @@ srv/
 <sub>**code by anubhav trainings**</sub>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note — import vs. generate:</strong> <code>cds import</code> registers the service for <strong>CAP</strong> (so you can write <code>cds.connect.to('SalesOrder')</code> and mash it into your model). <code>generate-odata-client</code> (next section) produces the <strong>typed Cloud SDK client</strong> for fully type-safe calls. They are complementary — run <code>cds import</code> first so the EDMX is in place, then generate the typed client from the same folder. The <code>--as cds</code> flag asks for a <code>.csn</code> alongside the EDMX; drop it if you only want the EDMX copied.
+📌 <strong>Note — import vs. generate:</strong> <code>cds import</code> derives the service name and the <code>.csn</code>/model path from the EDMX file name — so the entry is keyed <code>sap_s4_OP_SALESORDER_0001_v1</code> with <code>"kind": "odata"</code>, and the model points at <code>srv/external/sap-s4-OP_SALESORDER_0001-v1</code>. This registers the service for <strong>CAP</strong>; <code>generate-odata-client</code> (next section) produces the <strong>typed Cloud SDK client</strong> for fully type-safe calls. Run <code>cds import</code> first, then generate the typed client from the same folder. The <code>--as cds</code> flag asks for a <code>.csn</code> alongside the EDMX.
 </div>
 
 ---
@@ -272,7 +276,7 @@ npx generate-odata-client --input srv/external --outputDir srv/src/generated --s
 <sub>**code by anubhav trainings**</sub>
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
-<em>💡 <strong>Concept — what just happened:</strong> the generator read <code>SalesOrder.edmx</code> and wrote a whole sub-project of TypeScript classes into <code>srv/src/generated</code>. This <strong>replaces</strong> the old, error-prone habit of hand-writing <code>interface SalesOrder { ... }</code> and keeping it in sync by hand.</em>
+<em>💡 <strong>Concept — what just happened:</strong> the generator read <code>sap-s4-OP_SALESORDER_0001-v1.edmx</code> and wrote a whole sub-project of TypeScript classes into <code>srv/src/generated</code>. This <strong>replaces</strong> the old, error-prone habit of hand-writing <code>interface SalesOrder { ... }</code> and keeping it in sync by hand.</em>
 </div>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
@@ -385,6 +389,14 @@ service CatalogService {
     salesOrderType     : String;
     soldToParty        : String;
     salesOrganization  : String;
+    items              : array of SalesOrderItemView;
+  }
+
+  type SalesOrderItemView {
+    salesOrderItem        : String;
+    material              : String;
+    requestedQuantity     : String;
+    requestedQuantityUnit : String;
   }
 
   type SalesOrderItemInput {
@@ -439,8 +451,8 @@ capm-s4-mashup/
 ├── srv/
 │   ├── CatalogService.cds       # now includes SalesOrder function + action
 │   ├── external/
-│   │   ├── SalesOrder.edmx      # downloaded blueprint (version 4.0)
-│   │   └── SalesOrder.csn       # registered by `cds import`
+│   │   ├── sap-s4-OP_SALESORDER_0001-v1.edmx      # downloaded blueprint (version 4.0)
+│   │   └── sap-s4-OP_SALESORDER_0001-v1.csn       # registered by `cds import`
 │   └── src/
 │       └── generated/           # ← typed client written by the generator
 │           └── sap-s4-OP_SALESORDER_0001-v1/   # folder named after the EDMX service
@@ -458,10 +470,10 @@ capm-s4-mashup/
 ## ✅ Step 2 checklist
 
 - [ ] `.env` created with `S4_URL` (host + port only), `S4_USERNAME`, `S4_PASSWORD` and added to `.gitignore`.
-- [ ] EDMX downloaded into `srv/external/SalesOrder.edmx`.
+- [ ] EDMX downloaded into `srv/external/sap-s4-OP_SALESORDER_0001-v1.edmx`.
 - [ ] EDMX first line edited: `Version="4.01"` → `Version="4.0"`.
 - [ ] `@sap-cloud-sdk/generator` (dev) and `@sap-cloud-sdk/odata-v4` (runtime) installed.
-- [ ] `cds import srv/external/SalesOrder.edmx --as cds` registered the service (`.csn` + `cds.requires` entry).
+- [ ] `cds import srv/external/sap-s4-OP_SALESORDER_0001-v1.edmx --as cds` registered the service (`.csn` + `cds.requires` entry).
 - [ ] `npx generate-odata-client ... --skipValidation` produced `srv/src/generated`.
 - [ ] You can open `service.ts` and identify the entity APIs and request builders.
 - [ ] `CatalogService.cds` extended with the SalesOrder function + action.

@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="9" refY="3.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L9,3.5 L0,7 z" fill="#1976d2"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="640" fill="#ffffff"/>
+
+  <text x="500" y="40" text-anchor="middle" font-size="23" font-weight="700" fill="#263238">How UI5 TypeScript Conversion Works (Transpile Pipeline)</text>
+  <text x="500" y="62" text-anchor="middle" font-size="13" fill="#90a4ae">code by anubhav trainings</text>
+
+  <!-- Stage 1: TS source -->
+  <rect x="40" y="110" width="200" height="120" rx="12" fill="#e3f2fd" stroke="#1976d2" stroke-width="2.5"/>
+  <text x="140" y="140" text-anchor="middle" font-size="15" font-weight="700" fill="#0d47a1">1. You write</text>
+  <text x="140" y="166" text-anchor="middle" font-size="13" fill="#1565c0">Component.ts</text>
+  <text x="140" y="186" text-anchor="middle" font-size="13" fill="#1565c0">*.controller.ts</text>
+  <text x="140" y="210" text-anchor="middle" font-size="11" font-style="italic" fill="#1976d2">ESM import + classes + types</text>
+
+  <!-- Stage 2: ui5-tooling-transpile -->
+  <rect x="300" y="92" width="240" height="156" rx="12" fill="#e8f5e9" stroke="#43a047" stroke-width="2.5"/>
+  <text x="420" y="120" text-anchor="middle" font-size="15" font-weight="700" fill="#1b5e20">2. ui5-tooling-transpile</text>
+  <text x="420" y="142" text-anchor="middle" font-size="11.5" fill="#2e7d32">(runs on ui5 serve / build)</text>
+  <line x1="320" y1="152" x2="520" y2="152" stroke="#a5d6a7" stroke-width="1.5"/>
+  <text x="315" y="174" font-size="11.5" fill="#2e7d32">• Babel strips the types</text>
+  <text x="315" y="194" font-size="11.5" fill="#2e7d32">• @ui5/ts-interface plugin</text>
+  <text x="315" y="212" font-size="11.5" fill="#2e7d32">• rewrites ESM import →</text>
+  <text x="330" y="230" font-size="11.5" font-weight="700" fill="#1b5e20">sap.ui.define([...])</text>
+
+  <!-- Stage 3: AMD JS output -->
+  <rect x="600" y="110" width="200" height="120" rx="12" fill="#fff3e0" stroke="#fb8c00" stroke-width="2.5"/>
+  <text x="700" y="140" text-anchor="middle" font-size="15" font-weight="700" fill="#e65100">3. Output (in memory)</text>
+  <text x="700" y="166" text-anchor="middle" font-size="13" fill="#ef6c00">Component.js</text>
+  <text x="700" y="186" text-anchor="middle" font-size="13" fill="#ef6c00">*.controller.js</text>
+  <text x="700" y="210" text-anchor="middle" font-size="11" font-style="italic" fill="#fb8c00">classic AMD UI5 modules</text>
+
+  <!-- Stage 4: Browser -->
+  <rect x="850" y="110" width="120" height="120" rx="12" fill="#ede7f6" stroke="#673ab7" stroke-width="2.5"/>
+  <text x="910" y="150" text-anchor="middle" font-size="15" font-weight="700" fill="#4527a0">4. Browser</text>
+  <text x="910" y="176" text-anchor="middle" font-size="11.5" fill="#5e35b1">UI5 runtime</text>
+  <text x="910" y="194" text-anchor="middle" font-size="11.5" fill="#5e35b1">loads AMD</text>
+  <text x="910" y="212" text-anchor="middle" font-size="11.5" fill="#5e35b1">renders app</text>
+
+  <!-- arrows row 1 -->
+  <line x1="240" y1="170" x2="298" y2="170" stroke="#1976d2" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="540" y1="170" x2="598" y2="170" stroke="#1976d2" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="800" y1="170" x2="848" y2="170" stroke="#1976d2" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- tsconfig / type-check side path -->
+  <rect x="300" y="300" width="240" height="96" rx="12" fill="#e0f7fa" stroke="#00acc1" stroke-width="2.5"/>
+  <text x="420" y="328" text-anchor="middle" font-size="14" font-weight="700" fill="#006064">tsconfig.json + tsc --noEmit</text>
+  <text x="420" y="352" text-anchor="middle" font-size="11.5" fill="#0097a7">checks types only (the "type gate")</text>
+  <text x="420" y="372" text-anchor="middle" font-size="11.5" fill="#0097a7">does NOT produce the runtime JS</text>
+  <text x="420" y="388" text-anchor="middle" font-size="10.5" font-style="italic" fill="#00838f">errors here = red squiggles in VS Code</text>
+
+  <line x1="420" y1="248" x2="420" y2="298" stroke="#00acc1" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrow)"/>
+
+  <!-- Key insight banners -->
+  <rect x="40" y="300" width="230" height="96" rx="12" fill="#fce4ec" stroke="#e91e63" stroke-width="2"/>
+  <text x="155" y="328" text-anchor="middle" font-size="14" font-weight="700" fill="#ad1457">Two jobs, kept apart</text>
+  <text x="155" y="352" text-anchor="middle" font-size="11" fill="#c2185b">Babel = make it RUN</text>
+  <text x="155" y="372" text-anchor="middle" font-size="11" fill="#c2185b">tsc  = make it SAFE</text>
+  <text x="155" y="390" text-anchor="middle" font-size="10" font-style="italic" fill="#d81b60">types never reach the browser</text>
+
+  <rect x="600" y="300" width="370" height="96" rx="12" fill="#fffde7" stroke="#fbc02d" stroke-width="2"/>
+  <text x="785" y="328" text-anchor="middle" font-size="14" font-weight="700" fill="#f57f17">Hybrid mode (the whole migration)</text>
+  <text x="785" y="352" text-anchor="middle" font-size="11.5" fill="#f9a825">.js and .ts files live side-by-side in webapp/</text>
+  <text x="785" y="372" text-anchor="middle" font-size="11.5" fill="#f9a825">transpiler ignores plain .js, compiles only .ts</text>
+  <text x="785" y="390" text-anchor="middle" font-size="10.5" font-style="italic" fill="#fbc02d">convert one file at a time, app keeps running</text>
+
+  <!-- bottom timeline -->
+  <rect x="40" y="440" width="930" height="160" rx="12" fill="#f5f5f5" stroke="#b0bec5" stroke-width="1.5"/>
+  <text x="505" y="468" text-anchor="middle" font-size="15" font-weight="700" fill="#37474f">The 3 pieces you add in Step 1</text>
+
+  <rect x="70" y="486" width="280" height="92" rx="10" fill="#ffffff" stroke="#90caf9"/>
+  <text x="210" y="512" text-anchor="middle" font-size="13" font-weight="700" fill="#0d47a1">package.json</text>
+  <text x="210" y="536" text-anchor="middle" font-size="11" fill="#1565c0">npm i -D typescript</text>
+  <text x="210" y="554" text-anchor="middle" font-size="11" fill="#1565c0">npm i -D ui5-tooling-transpile</text>
+  <text x="210" y="570" text-anchor="middle" font-size="11" fill="#1565c0">npm i -D @sapui5/types</text>
+
+  <rect x="365" y="486" width="280" height="92" rx="10" fill="#ffffff" stroke="#a5d6a7"/>
+  <text x="505" y="512" text-anchor="middle" font-size="13" font-weight="700" fill="#1b5e20">ui5.yaml</text>
+  <text x="505" y="536" text-anchor="middle" font-size="11" fill="#2e7d32">server: customMiddleware</text>
+  <text x="505" y="554" text-anchor="middle" font-size="11" fill="#2e7d32">builder: customTasks</text>
+  <text x="505" y="570" text-anchor="middle" font-size="11" fill="#2e7d32">→ ui5-tooling-transpile</text>
+
+  <rect x="660" y="486" width="280" height="92" rx="10" fill="#ffffff" stroke="#80deea"/>
+  <text x="800" y="512" text-anchor="middle" font-size="13" font-weight="700" fill="#006064">tsconfig.json</text>
+  <text x="800" y="536" text-anchor="middle" font-size="11" fill="#0097a7">strict, target ES2022</text>
+  <text x="800" y="554" text-anchor="middle" font-size="11" fill="#0097a7">types: ["@sapui5/types"]</text>
+  <text x="800" y="570" text-anchor="middle" font-size="11" fill="#0097a7">module: preserve</text>
+</svg>

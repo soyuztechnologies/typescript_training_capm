@@ -41,7 +41,7 @@ We are building **one CAP service** that does two jobs at the same time:
 Two tiny entities that live in **our** database, linked by an **association**:
 
 - **Material** — 4 fields + a `cuid` key (auto-generated UUID); `plant` is an association to Plant.
-- **Plant** — 4 fields + a `cuid` key; `materials` is the reverse association back to Material.
+- **Plant** — 4 fields + a `cuid` key.
 
 We also generate **seed/test data** with `cds add data` — **10 plants** and **20 materials** in CSV files — so the database is never empty when we test.
 
@@ -55,7 +55,7 @@ On top of these entities we attach **three business rules** (event handlers) wri
 
 We connect to a live **S/4HANA Sales Order** OData service and expose it through the same CAP application using **fully typed, generated client code** (no hand-written interfaces).
 
-- Remote service: `https://122.162.240.164:8010/.../SalesOrder`
+- Remote service: `http://122.162.240.164:8010/.../SalesOrder`
 - We generate a typed client from the service's **EDMX** metadata.
 - We consume **GET** (read sales orders) and **POST** (create a sales order) operations.
 

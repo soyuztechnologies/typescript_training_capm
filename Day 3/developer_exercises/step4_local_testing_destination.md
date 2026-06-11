@@ -22,6 +22,10 @@
 <em>💡 <strong>The big idea of Step 4:</strong> hard-coding URLs and passwords is fine for a first local test, but the SAP way is a <strong>Destination</strong> — a named, central place that stores the URL, credentials and auth type. Your code just says "call destination <code>S4HANA_SALESORDER</code>" and BTP supplies the rest.</em>
 </div>
 
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note — how the sample project actually runs:</strong> the <code>capm-s4-mashup</code> sample in this folder connects with the <strong>inline <code>.env</code> credentials</strong> built by <code>config-loader.ts</code> (Step 3) — it does <strong>not</strong> ship a BTP Destination. The Destination shown in this step is the recommended path for <strong>cloud deployment</strong>, where you cannot bundle a <code>.env</code>. Use whichever fits: <code>.env</code> for local, Destination for BTP.
+</div>
+
 ---
 
 ## 4.1 — Create the Destination in your BTP account
@@ -38,7 +42,7 @@ In the **BTP Cockpit**:
 ```text
 Name:           S4HANA_SALESORDER
 Type:           HTTP
-URL:            https://122.162.240.164:8010
+URL:            http://122.162.240.164:8010
 Proxy Type:     Internet
 Authentication: BasicAuthentication
 User:           <YOUR_S4_USER>
@@ -245,7 +249,7 @@ For reference, the **raw S/4HANA V4 payload** (what the SDK actually sends after
 Sometimes you want to confirm the system itself works before blaming your code. You can call S/4HANA directly from the same `.http` file:
 
 ```http
-@s4host = https://122.162.240.164:8010
+@s4host = http://122.162.240.164:8010
 @s4path = /sap/opu/odata4/sap/api_salesorder/srvd_a2x/sap/salesorder/0001
 @auth = Basic {{$dotenv S4_USERNAME}}:{{$dotenv S4_PASSWORD}}
 

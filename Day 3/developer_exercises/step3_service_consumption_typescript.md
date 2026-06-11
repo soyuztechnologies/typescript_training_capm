@@ -14,7 +14,7 @@
 | Shared types | `srv/types/sales-order.d.ts` | reusable interfaces & contracts |
 | Generated client | `srv/src/generated/sap-s4-OP_SALESORDER_0001-v1` | typed S/4HANA API (factory `sapS4OpSalesorder0001V1`, from Step 2) |
 | Decimal quantities | `npm i bignumber.js` → `new BigNumber('5')` | item qty |
-| Read sales orders | `salesOrderApi.requestBuilder().getAll().execute(dest)` | GET |
+| Read orders + items | `salesOrderApi.requestBuilder().getAll().expand(schema.ITEM).execute(dest)` | GET |
 | Create order + items | `salesOrderItemApi.entityBuilder()...build()` → `.item(items)` → `create(order)` | POST |
 
 <sub>**code by anubhav trainings**</sub>
@@ -54,12 +54,21 @@ export interface SalesOrderInput {
   items: SalesOrderItemInput[];
 }
 
-// Slim view we return to the consumer
+// Slim line-item view returned inside each order
+export interface SalesOrderItemView {
+  salesOrderItem: string;
+  material: string;
+  requestedQuantity: string;
+  requestedQuantityUnit: string;
+}
+
+// Slim view we return to the consumer (header + its items)
 export interface SalesOrderView {
   salesOrder: string;
   salesOrderType: string;
   soldToParty: string;
   salesOrganization: string;
+  items: SalesOrderItemView[];
 }
 
 // Which OData protocol a given config speaks
@@ -330,28 +339,36 @@ import { sapS4OpSalesorder0001V1 as salesOrderService } from './src/generated/sa
 <em>💡 <strong>Concept — destination:</strong> the SDK needs to know <em>where</em> and <em>with what credentials</em> to call. That bundle is a "destination". Locally we build it from <code>.env</code>; in the cloud (Step 4) it comes from a BTP Destination service.</em>
 </div>
 
-### Snippet B — handle GET (read sales orders)
+### Snippet B — handle GET (read each order **with** its item lines)
+
+We `.expand(...)` the item navigation so the detail view can show the lines in a table. On this generated client the selectable is `salesOrderApi.schema.ITEM` and the expanded rows arrive on the entity as `o.item`.
 
 ```typescript
 this.on('getSalesOrders', async (): Promise<SalesOrderView[]> => {
   const cfg = loadS4Config();
+  const service = salesOrderService();
 
-  const orders = await salesOrderService()
-    .salesOrderApi.requestBuilder()
+  const orders = await service.salesOrderApi
+    .requestBuilder()
     .getAll()
+    // expand the item lines so the detail view can show them in a table
+    .expand(service.salesOrderApi.schema.ITEM)
     .top(20)
-    .execute({
-      url: cfg.url,
-      username: cfg.username,
-      password: cfg.password,
-    });
+    .execute({ url: cfg.url, username: cfg.username, password: cfg.password });
 
-  // map the rich S/4HANA entity down to our slim view
+  // map the rich S/4HANA entity down to our slim header + items view
   return orders.map((o) => ({
     salesOrder: o.salesOrder,
     salesOrderType: o.salesOrderType ?? '',
     soldToParty: o.soldToParty ?? '',
     salesOrganization: o.salesOrganization ?? '',
+    items: (o.item ?? []).map((it) => ({
+      salesOrderItem: it.salesOrderItem ?? '',
+      material: it.product ?? '',
+      // requestedQuantity is an Edm.Decimal (BigNumber) - send it as a string
+      requestedQuantity: it.requestedQuantity?.toString() ?? '',
+      requestedQuantityUnit: it.requestedQuantitySapUnit ?? it.requestedQuantityIsoUnit ?? '',
+    })),
   }));
 });
 ```
@@ -365,22 +382,26 @@ this.on('getSalesOrders', async (): Promise<SalesOrderView[]> => {
 ```javascript
 this.on('getSalesOrders', async () => {
   const cfg = loadS4Config();
+  const service = salesOrderService();
 
-  const orders = await salesOrderService()
-    .salesOrderApi.requestBuilder()
+  const orders = await service.salesOrderApi
+    .requestBuilder()
     .getAll()
+    .expand(service.salesOrderApi.schema.ITEM)
     .top(20)
-    .execute({
-      url: cfg.url,
-      username: cfg.username,
-      password: cfg.password,
-    });
+    .execute({ url: cfg.url, username: cfg.username, password: cfg.password });
 
   return orders.map((o) => ({
     salesOrder: o.salesOrder,
     salesOrderType: o.salesOrderType || '',
     soldToParty: o.soldToParty || '',
     salesOrganization: o.salesOrganization || '',
+    items: (o.item || []).map((it) => ({
+      salesOrderItem: it.salesOrderItem || '',
+      material: it.product || '',
+      requestedQuantity: it.requestedQuantity ? it.requestedQuantity.toString() : '',
+      requestedQuantityUnit: it.requestedQuantitySapUnit || it.requestedQuantityIsoUnit || '',
+    })),
   }));
 });
 ```
@@ -390,11 +411,11 @@ this.on('getSalesOrders', async () => {
 <sub>**code by anubhav trainings**</sub>
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
-<em>💡 <strong>Concept — request builder:</strong> <code>salesOrderApi.requestBuilder().getAll()</code> builds a typed OData GET. <code>.top(20)</code> caps the rows so a demo does not pull thousands. The SDK returns typed <code>SalesOrder</code> entities, which we map down to our slim <code>SalesOrderView</code>.</em>
+<em>💡 <strong>Concept — `.expand(...)`:</strong> by default an OData GET returns only the header fields. <code>.expand(service.salesOrderApi.schema.ITEM)</code> tells S/4HANA to send the related line items in the same response (one round-trip), and the SDK fills <code>o.item</code> with a typed array. We map those into our <code>items</code> view so a UI can show a detail table.</em>
 </div>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note:</strong> The <code>?? ''</code> handles fields the SDK types as possibly <code>undefined</code> — TypeScript forces you to decide what happens when a value is missing. Here we read only header fields; creating an order <em>with</em> line items is handled next in <code>createSalesOrder</code>.
+📌 <strong>Note — read-side field names:</strong> on the way <em>out</em>, the item's material is exposed as <code>product</code>, and the unit may arrive as <code>requestedQuantitySapUnit</code> <em>or</em> <code>requestedQuantityIsoUnit</code> (we fall back from one to the other). <code>requestedQuantity</code> is an <code>Edm.Decimal</code> (a <code>BigNumber</code>), so we call <code>.toString()</code>. If your generated <code>SalesOrderApi.ts</code> lists a different selectable than <code>ITEM</code>, use exactly what it shows.
 </div>
 
 ---
@@ -449,6 +470,13 @@ this.on('createSalesOrder', async (req): Promise<SalesOrderView> => {
       salesOrderType: created.salesOrderType ?? '',
       soldToParty: created.soldToParty ?? '',
       salesOrganization: created.salesOrganization ?? '',
+      // S/4 does not echo the created items on this response, so return what we sent
+      items: input.items.map((it) => ({
+        salesOrderItem: it.salesOrderItem ?? '',
+        material: it.material ?? '',
+        requestedQuantity: it.requestedQuantity ?? '',
+        requestedQuantityUnit: it.requestedQuantityUnit ?? '',
+      })),
     };
   } catch (err: any) {
     // Surface the real S/4 response instead of a generic 500.
@@ -506,6 +534,13 @@ this.on('createSalesOrder', async (req) => {
       salesOrderType: created.salesOrderType || '',
       soldToParty: created.soldToParty || '',
       salesOrganization: created.salesOrganization || '',
+      // S/4 does not echo the created items, so return what we sent
+      items: input.items.map((it) => ({
+        salesOrderItem: it.salesOrderItem || '',
+        material: it.material || '',
+        requestedQuantity: it.requestedQuantity || '',
+        requestedQuantityUnit: it.requestedQuantityUnit || '',
+      })),
     };
   } catch (err) {
     const status = (err && err.response && err.response.status) || err.status;
@@ -555,11 +590,19 @@ export interface SalesOrderInput {
   items: SalesOrderItemInput[];
 }
 
+export interface SalesOrderItemView {
+  salesOrderItem: string;
+  material: string;
+  requestedQuantity: string;
+  requestedQuantityUnit: string;
+}
+
 export interface SalesOrderView {
   salesOrder: string;
   salesOrderType: string;
   soldToParty: string;
   salesOrganization: string;
+  items: SalesOrderItemView[];
 }
 
 export type ODataVersion = 'v2' | 'v4';
@@ -719,9 +762,12 @@ export class CatalogService extends cds.ApplicationService {
 
   private getSalesOrders = async (): Promise<SalesOrderView[]> => {
     const cfg = loadS4Config();
-    const orders = await salesOrderService()
-      .salesOrderApi.requestBuilder()
+    const service = salesOrderService();
+    const orders = await service.salesOrderApi
+      .requestBuilder()
       .getAll()
+      // expand the item lines so the detail view can show them in a table
+      .expand(service.salesOrderApi.schema.ITEM)
       .top(20)
       .execute({ url: cfg.url, username: cfg.username, password: cfg.password });
 
@@ -730,6 +776,13 @@ export class CatalogService extends cds.ApplicationService {
       salesOrderType: o.salesOrderType ?? '',
       soldToParty: o.soldToParty ?? '',
       salesOrganization: o.salesOrganization ?? '',
+      items: (o.item ?? []).map((it) => ({
+        salesOrderItem: it.salesOrderItem ?? '',
+        material: it.product ?? '',
+        // requestedQuantity is an Edm.Decimal (BigNumber) - send it as a string
+        requestedQuantity: it.requestedQuantity?.toString() ?? '',
+        requestedQuantityUnit: it.requestedQuantitySapUnit ?? it.requestedQuantityIsoUnit ?? '',
+      })),
     }));
   };
 
@@ -778,6 +831,13 @@ export class CatalogService extends cds.ApplicationService {
         salesOrderType: created.salesOrderType ?? '',
         soldToParty: created.soldToParty ?? '',
         salesOrganization: created.salesOrganization ?? '',
+        // S/4 does not echo the created items on this response, so return what we sent
+        items: input.items.map((it) => ({
+          salesOrderItem: it.salesOrderItem ?? '',
+          material: it.material ?? '',
+          requestedQuantity: it.requestedQuantity ?? '',
+          requestedQuantityUnit: it.requestedQuantityUnit ?? '',
+        })),
       };
     } catch (err: any) {
       // Surface the real S/4 response instead of a generic 500.
@@ -813,9 +873,11 @@ module.exports = class CatalogService extends cds.ApplicationService {
 
   getSalesOrders = async () => {
     const cfg = loadS4Config();
-    const orders = await salesOrderService()
-      .salesOrderApi.requestBuilder()
+    const service = salesOrderService();
+    const orders = await service.salesOrderApi
+      .requestBuilder()
       .getAll()
+      .expand(service.salesOrderApi.schema.ITEM)
       .top(20)
       .execute({ url: cfg.url, username: cfg.username, password: cfg.password });
 
@@ -824,6 +886,12 @@ module.exports = class CatalogService extends cds.ApplicationService {
       salesOrderType: o.salesOrderType || '',
       soldToParty: o.soldToParty || '',
       salesOrganization: o.salesOrganization || '',
+      items: (o.item || []).map((it) => ({
+        salesOrderItem: it.salesOrderItem || '',
+        material: it.product || '',
+        requestedQuantity: it.requestedQuantity ? it.requestedQuantity.toString() : '',
+        requestedQuantityUnit: it.requestedQuantitySapUnit || it.requestedQuantityIsoUnit || '',
+      })),
     }));
   };
 
@@ -865,6 +933,12 @@ module.exports = class CatalogService extends cds.ApplicationService {
         salesOrderType: created.salesOrderType || '',
         soldToParty: created.soldToParty || '',
         salesOrganization: created.salesOrganization || '',
+        items: input.items.map((it) => ({
+          salesOrderItem: it.salesOrderItem || '',
+          material: it.material || '',
+          requestedQuantity: it.requestedQuantity || '',
+          requestedQuantityUnit: it.requestedQuantityUnit || '',
+        })),
       };
     } catch (err) {
       const status = (err && err.response && err.response.status) || err.status;
@@ -889,8 +963,8 @@ module.exports = class CatalogService extends cds.ApplicationService {
 - [ ] `srv/types/sales-order.d.ts` holds all reusable interfaces.
 - [ ] `config-loader.ts` reads host + credentials from `.env`, appends the service path in code, and provides `isODataV2` / `isODataV4` type guards.
 - [ ] `payload-parser.ts` validates unknown JSON into a typed `SalesOrderInput`.
-- [ ] `getSalesOrders` consumes GET via the request builder (header fields).
-- [ ] `createSalesOrder` builds line items with `salesOrderItemApi`, attaches them with `.item(...)`, and POSTs the order (with `try/catch` surfacing the real S/4 error).
+- [ ] `getSalesOrders` consumes GET via the request builder and `.expand(schema.ITEM)` so each order returns its item lines.
+- [ ] `createSalesOrder` builds line items with `salesOrderItemApi`, attaches them with `.item(...)`, POSTs the order, and echoes the sent items (with `try/catch` surfacing the real S/4 error).
 - [ ] `bignumber.js` installed (`npm i bignumber.js`).
 - [ ] `npx tsc --noEmit` is clean.
 

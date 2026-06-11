@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 z" fill="#455a64"/>
+    </marker>
+  </defs>
+
+  <!-- background -->
+  <rect x="0" y="0" width="1000" height="720" fill="#ffffff"/>
+
+  <!-- title -->
+  <text x="500" y="40" text-anchor="middle" font-size="24" font-weight="700" fill="#263238">manageorder — Current Structure (Plain JavaScript)</text>
+  <text x="500" y="62" text-anchor="middle" font-size="13" fill="#90a4ae">code by anubhav trainings</text>
+
+  <!-- Tooling row -->
+  <rect x="30" y="92" width="640" height="78" rx="10" fill="#fff3e0" stroke="#fb8c00" stroke-width="2"/>
+  <text x="50" y="120" font-size="15" font-weight="700" fill="#e65100">Build / Serve Tooling (no transpiler)</text>
+  <text x="50" y="144" font-size="12.5" fill="#ef6c00">ui5.yaml  — specVersion 2.5, type: application, NO custom middleware/task</text>
+  <text x="50" y="162" font-size="12.5" fill="#ef6c00">package.json — empty devDependencies, no typescript, no ui5-tooling-transpile</text>
+
+  <!-- index.html bootstrap -->
+  <rect x="700" y="92" width="270" height="78" rx="10" fill="#f5f5f5" stroke="#9e9e9e" stroke-width="2"/>
+  <text x="835" y="120" text-anchor="middle" font-size="14" font-weight="700" fill="#37474f">webapp/index.html</text>
+  <text x="835" y="142" text-anchor="middle" font-size="11.5" fill="#546e7a">CDN bootstrap (1.149.0)</text>
+  <text x="835" y="160" text-anchor="middle" font-size="11.5" fill="#546e7a">ComponentSupport</text>
+
+  <!-- Component -->
+  <rect x="380" y="200" width="240" height="66" rx="10" fill="#e3f2fd" stroke="#1976d2" stroke-width="2.5"/>
+  <text x="500" y="228" text-anchor="middle" font-size="15" font-weight="700" fill="#0d47a1">Component.js</text>
+  <text x="500" y="250" text-anchor="middle" font-size="11.5" fill="#1565c0">UIComponent.extend(...) — init()</text>
+
+  <!-- manifest -->
+  <rect x="680" y="200" width="290" height="66" rx="10" fill="#ede7f6" stroke="#673ab7" stroke-width="2"/>
+  <text x="825" y="228" text-anchor="middle" font-size="14" font-weight="700" fill="#4527a0">manifest.json</text>
+  <text x="825" y="250" text-anchor="middle" font-size="11" fill="#5e35b1">routes: leftSide / spiderman / addOrder / superman</text>
+
+  <!-- Controllers box -->
+  <rect x="30" y="300" width="470" height="330" rx="12" fill="#e8f5e9" stroke="#43a047" stroke-width="2.5"/>
+  <text x="265" y="328" text-anchor="middle" font-size="16" font-weight="700" fill="#1b5e20">webapp/controller/  (7 files — all .js)</text>
+
+  <rect x="55" y="346" width="200" height="48" rx="8" fill="#ffffff" stroke="#81c784"/>
+  <text x="155" y="368" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2e7d32">BaseController.js</text>
+  <text x="155" y="384" text-anchor="middle" font-size="10.5" fill="#388e3c">holds formatter</text>
+
+  <rect x="275" y="346" width="200" height="48" rx="8" fill="#ffffff" stroke="#81c784"/>
+  <text x="375" y="368" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2e7d32">App.controller.js</text>
+  <text x="375" y="384" text-anchor="middle" font-size="10.5" fill="#388e3c">shell root</text>
+
+  <rect x="55" y="406" width="200" height="48" rx="8" fill="#ffffff" stroke="#81c784"/>
+  <text x="155" y="428" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2e7d32">View1.controller.js</text>
+  <text x="155" y="444" text-anchor="middle" font-size="10.5" fill="#388e3c">list + search + fetch</text>
+
+  <rect x="275" y="406" width="200" height="48" rx="8" fill="#ffffff" stroke="#81c784"/>
+  <text x="375" y="428" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2e7d32">View2.controller.js</text>
+  <text x="375" y="444" text-anchor="middle" font-size="10.5" fill="#388e3c">detail + fragments</text>
+
+  <rect x="55" y="466" width="200" height="48" rx="8" fill="#ffffff" stroke="#81c784"/>
+  <text x="155" y="488" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2e7d32">View3.controller.js</text>
+  <text x="155" y="504" text-anchor="middle" font-size="10.5" fill="#388e3c">supplier detail</text>
+
+  <rect x="275" y="466" width="200" height="48" rx="8" fill="#ffffff" stroke="#81c784"/>
+  <text x="375" y="488" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2e7d32">Add.controller.js</text>
+  <text x="375" y="504" text-anchor="middle" font-size="10.5" fill="#388e3c">create + POST</text>
+
+  <rect x="165" y="526" width="200" height="48" rx="8" fill="#ffffff" stroke="#81c784"/>
+  <text x="265" y="548" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2e7d32">Empty.controller.js</text>
+  <text x="265" y="564" text-anchor="middle" font-size="10.5" fill="#388e3c">placeholder pane</text>
+
+  <text x="265" y="606" text-anchor="middle" font-size="11.5" font-style="italic" fill="#558b2f">every file = sap.ui.define([...], function(...) { return X.extend(...) })</text>
+
+  <!-- Helpers box -->
+  <rect x="530" y="300" width="440" height="150" rx="12" fill="#fffde7" stroke="#fbc02d" stroke-width="2.5"/>
+  <text x="750" y="328" text-anchor="middle" font-size="16" font-weight="700" fill="#f57f17">Helpers (.js)</text>
+  <rect x="555" y="346" width="180" height="80" rx="8" fill="#ffffff" stroke="#ffd54f"/>
+  <text x="645" y="376" text-anchor="middle" font-size="13" font-weight="700" fill="#f9a825">util/formatter.js</text>
+  <text x="645" y="398" text-anchor="middle" font-size="10.5" fill="#f9a825">getStatus / getStatusColor</text>
+  <text x="645" y="414" text-anchor="middle" font-size="10.5" fill="#f9a825">getOrderTypeDescription</text>
+  <rect x="760" y="346" width="180" height="80" rx="8" fill="#ffffff" stroke="#ffd54f"/>
+  <text x="850" y="376" text-anchor="middle" font-size="13" font-weight="700" fill="#f9a825">model/models.js</text>
+  <text x="850" y="398" text-anchor="middle" font-size="10.5" fill="#f9a825">createDeviceModel()</text>
+  <text x="850" y="414" text-anchor="middle" font-size="10.5" fill="#f9a825">fruits.json data</text>
+
+  <!-- Views / fragments -->
+  <rect x="530" y="480" width="440" height="150" rx="12" fill="#fce4ec" stroke="#e91e63" stroke-width="2.5"/>
+  <text x="750" y="508" text-anchor="middle" font-size="15" font-weight="700" fill="#ad1457">Views &amp; Fragments (XML — unchanged by migration)</text>
+  <text x="750" y="536" text-anchor="middle" font-size="12" fill="#c2185b">view/  App, View1, View2, View3, Add, Empty (.view.xml)</text>
+  <text x="750" y="558" text-anchor="middle" font-size="12" fill="#c2185b">fragments/  popup, supplier, cities, moreInfo (.fragment.xml)</text>
+  <text x="750" y="580" text-anchor="middle" font-size="12" fill="#c2185b">i18n/i18n.properties</text>
+  <text x="750" y="608" text-anchor="middle" font-size="11" font-style="italic" fill="#d81b60">controllerName links XML view to its controller</text>
+
+  <!-- arrows -->
+  <line x1="500" y1="170" x2="500" y2="200" stroke="#455a64" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="620" y1="233" x2="680" y2="233" stroke="#455a64" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- footer banner -->
+  <rect x="30" y="652" width="940" height="46" rx="8" fill="#eceff1" stroke="#b0bec5"/>
+  <text x="500" y="681" text-anchor="middle" font-size="13.5" font-weight="700" fill="#37474f">Status today: 100% JavaScript · no type-checking · no compile step · runs from the browser CDN</text>
+</svg>
