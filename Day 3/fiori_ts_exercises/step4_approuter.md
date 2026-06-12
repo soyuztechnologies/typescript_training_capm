@@ -12,7 +12,8 @@
 |-------|------|---------|
 | Scaffold router | `cds add approuter` **or** `cd app/router && npm i @sap/approuter` | create the App Router module |
 | Route rules | `app/router/xs-app.json` | tells the App Router how to forward each URL |
-| Module descriptor | `mta.yaml` | lists app + approuter + html5-repo for CF deploy |
+| Module descriptor | `mta.yaml` | lists CAP backend + UI + approuter + html5-repo for CF deploy |
+| Auth (XSUAA) | `cds add xsuaa` + `xs-app.json` (`xsuaa`) + CAP `package.json` (`[production].auth.kind: xsuaa`) | secure the app with BTP login (§4.1, §4.2, §4.3a) |
 | Build the app | `ui5 build --clean-dest` | produces the static `dist/` to upload |
 | Type gate | `npm run ts-typecheck` (`tsc --noEmit`) | must print **zero** errors before deploy |
 | Build the MTA | `mbt build` | bundles everything into one `.mtar` |
@@ -50,15 +51,17 @@ Because `manageorder` lives inside the CAP project `capm-s4-mashup`, the CAP CLI
 
 ```bash
 # from the CAP project root: capm-s4-mashup/
-cds add approuter
+cds add approuter      # the App Router module (app/router/)
+cds add html5-repo     # HTML5 application repository resources
+cds add xsuaa          # the XSUAA (manageorder-uaa) auth resource
 ```
 
 <sub><b>code by anubhav trainings</b></sub>
 
-This generates the **`app/router/`** folder containing a ready `package.json` (with the `@sap/approuter` dependency and a `start` script) and a starter `xs-app.json`, and registers an approuter module in your MTA descriptor. You then just edit the generated `xs-app.json` (§4.2).
+This generates the **`app/router/`** folder containing a ready `package.json` (with the `@sap/approuter` dependency and a `start` script) and a starter `xs-app.json`, registers an approuter module in your MTA descriptor, and adds the html5-repo + XSUAA resources. You then just edit the generated `xs-app.json` (§4.2).
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note:</strong> <code>cds add approuter</code> needs the <code>@sap/cds-dk</code> tooling (the global <code>cds</code> command). If you also run <code>cds add html5-repo</code> and <code>cds add xsuaa</code>, CAP fills in most of the <code>mta.yaml</code> from §4.3 automatically — a big time-saver over writing it by hand.
+📌 <strong>Note:</strong> <code>cds add approuter</code> needs the <code>@sap/cds-dk</code> tooling (the global <code>cds</code> command). Also run <code>cds add html5-repo</code> and <code>cds add xsuaa</code> — together they fill in most of the <code>mta.yaml</code> from §4.3 automatically (the html5-repo resources and the <code>manageorder-uaa</code> XSUAA resource), a big time-saver over writing it by hand.
 </div>
 
 ### Option B — Create it manually with `npm`
@@ -164,10 +167,14 @@ Reading each route like a school rule:
 
 - **Rule 1 — OData:** "any URL that starts with `/odata/v4/catalog/` → send it to the backend service named `manageorder-srv`, and require login (`xsuaa`)."
 - **Rule 2 — UI5 library:** "anything under `/resources/` → fetch the UI5 framework from the `ui5` destination, no login needed."
-- **Rule 3 — everything else:** "all other URLs → serve my static app files from the HTML5 repository."
+- **Rule 3 — everything else:** "all other URLs → serve my static app files from the HTML5 repository, behind login (`xsuaa`)."
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
 <em>💡 <strong>Concept — order matters:</strong> the App Router checks routes <strong>top to bottom</strong> and uses the <em>first</em> match. The catch-all <code>^(.*)$</code> must be <strong>last</strong>, or it would swallow the OData calls before they reach Rule 1.</em>
+</div>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note — <code>authenticationType: "xsuaa"</code> needs a bound XSUAA instance.</strong> The <code>route</code> method + <code>xsuaa</code> routes mean every OData call and the app itself sit behind SAP BTP login. That requires an <strong>XSUAA</strong> service instance at deploy time — we add it with <code>cds add xsuaa</code> (§4.1) and it shows up as the <code>manageorder-uaa</code> resource in <code>mta.yaml</code> (§4.3). The backend must agree too: CAP's <code>production</code> profile uses <code>auth.kind: "xsuaa"</code> (§4.3a). All three — router, MTA, and CAP <code>package.json</code> — have to line up.
 </div>
 
 ---
@@ -184,33 +191,52 @@ Create **`mta.yaml`** at the project root:
 _schema-version: "3.2"
 ID: com.ats.manageorder
 version: 0.0.1
-description: "Manage Order - SAPUI5 TypeScript app"
+description: "Manage Order - SAPUI5 TypeScript app + CAP backend"
 
 parameters:
   enable-parallel-deployments: true
+  deploy_mode: html5-repo
 
 build-parameters:
   before-all:
     - builder: custom
       commands:
         - npm ci
-        - npm run build          # ui5 build → transpiles TS to JS into dist/
+        - npx cds build --production   # generates gen/srv (backend) + gen/db
 
 modules:
-  # 1) the static UI5 app, packaged for the HTML5 repo
+  # 1) the CAP backend — the OData service the App Router proxies to.
+  #    This is the module that *provides* srv-api/srv-url.
+  - name: manageorder-srv
+    type: nodejs
+    path: gen/srv
+    parameters:
+      buildpack: nodejs_buildpack
+    build-parameters:
+      builder: npm
+    provides:
+      - name: srv-api
+        properties:
+          srv-url: ${default-url}   # consumed by the approuter below
+    requires:
+      - name: manageorder-uaa       # xsuaa binding for token validation
+
+  # 2) the static UI5 app, packaged for the HTML5 repo
   - name: manageorder-ui
     type: html5
-    path: .
+    path: app/manageorder          # the UI5 app folder (NOT the root)
     build-parameters:
       build-result: dist
       builder: custom
       commands:
-        - npm run build
+        - npm ci
+        - npm run build            # ui5 build → transpiles TS to JS into dist/
       supported-platforms: []
 
-  # 2) deployer that uploads the UI to the HTML5 application repository
+  # 3) deployer that uploads the UI to the HTML5 application repository
   - name: manageorder-ui-deployer
     type: com.sap.application.content
+    path: .                        # required: gives the deployer a build context
     requires:
       - name: manageorder-html5-repo-host
         parameters:
@@ -223,19 +249,19 @@ modules:
           name: manageorder-ui
           target-path: resources/
 
-  # 3) the App Router that serves the app and proxies OData
+  # 4) the App Router — serves the app and proxies OData to manageorder-srv
   - name: manageorder-approuter
     type: approuter.nodejs
     path: app/router
     requires:
       - name: manageorder-html5-repo-runtime
-      - name: manageorder-uaa
-      - name: manageorder-srv-api
+      - name: manageorder-uaa      # xsuaa: the router handles BTP login
+      - name: srv-api              # matches the 'provides' name on module 1
         group: destinations
         properties:
-          name: manageorder-srv
-          url: ~{srv-url}
-          forwardAuthToken: true
+          name: manageorder-srv    # destination name used in xs-app.json
+          url: ~{srv-url}          # filled from srv-api's srv-url property
+          forwardAuthToken: true   # passes the logged-in user's token to the backend
 
 resources:
   - name: manageorder-html5-repo-host
@@ -257,14 +283,143 @@ resources:
 
 <sub><b>code by anubhav trainings</b></sub>
 
-The three modules, in one sentence each:
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note — the xsuaa wiring:</strong> the <code>manageorder-uaa</code> resource (bottom) creates the XSUAA service instance; both <code>manageorder-srv</code> and <code>manageorder-approuter</code> <code>require</code> it. The router <code>forwardAuthToken: true</code> passes the logged-in user's JWT to the backend, which validates it (CAP <code>auth.kind: "xsuaa"</code>, §4.3a). The <code>deploy_mode: html5-repo</code> parameter tells the deployer to push the UI into the HTML5 application repository.
+</div>
 
+The four modules, in one sentence each:
+
+- **`manageorder-srv`** — the CAP backend (OData service); it **provides** `srv-api`/`srv-url`, the value the App Router proxies to. Built from `gen/srv`, which `cds build --production` generates.
 - **`manageorder-ui`** — builds your TypeScript app into static files (`npm run build` runs the transpiler).
 - **`manageorder-ui-deployer`** — uploads those static files into the BTP HTML5 repository.
-- **`manageorder-approuter`** — the gatekeeper from §4.0, configured with the destinations and `xsuaa` login.
+- **`manageorder-approuter`** — the gatekeeper from §4.0; it **requires** `srv-api` and turns it into the `manageorder-srv` destination used by `app/router/xs-app.json`.
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Concept — provides / requires must match.</strong> The approuter line <code>~{srv-url}</code> only resolves because module 1 <strong>provides</strong> a property called <code>srv-url</code> under a block named <code>srv-api</code>, and the approuter <strong>requires</strong> that same name <code>srv-api</code>. If the required name has no matching <code>provides</code> anywhere in the file, <code>mbt build</code> fails with <em>"srv-url not provided."</em> That is the single most common MTA wiring mistake — a destination that points at a backend module nobody declared.</em>
+</div>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
 📌 <strong>Note:</strong> The build step <code>npm run build</code> is what turns your <code>.ts</code> files into the <code>.js</code> the browser runs — via the <code>ui5-tooling-transpile-task</code> you registered in <code>ui5.yaml</code> back in Step 1. The cloud never sees your TypeScript; it only receives the transpiled <code>dist/</code> output.
+</div>
+
+### ⚠️ Two runtime caveats for the CAP backend (in-memory SQLite)
+
+These do **not** block `mbt build`, but the deployed app will fail to **start** in Cloud Foundry unless you fix them. The cause is the same for both: the CF buildpack runs `npm ci --production`, which **skips `devDependencies`** — so anything the running app needs must be a regular `dependency` in `gen/srv/package.json` (or in your source `package.json`, which CAP copies into `gen/srv`).
+
+<table>
+<tr>
+<th>Problem</th>
+<th>Fix</th>
+</tr>
+<tr>
+<td valign="top">
+
+**No DB driver at runtime** — `@cap-js/sqlite` is a `devDependency`, so `npm ci --production` won't install it. The service boots with no database and every OData call fails.
+
+</td>
+<td valign="top">
+
+Move `@cap-js/sqlite` to **`dependencies`**:
+
+```bash
+npm install @cap-js/sqlite
+# (installs into "dependencies", not "devDependencies")
+```
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**Can't load `.ts` handlers** — your CAP handlers are TypeScript (`srv/*.ts`) and the type gate uses `tsc --noEmit` (checks only, emits nothing). At runtime CAP has no `.js` to load.
+
+</td>
+<td valign="top">
+
+Either ship a real JS runtime loader (`tsx` as a **`dependency`**), **or** — the cleaner production path — emit compiled JS in the build (`tsc` without `--noEmit`, or `cds build` configured to transpile) so CF runs plain `.js`.
+
+</td>
+</tr>
+</table>
+
+<sub><b>code by anubhav trainings</b></sub>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note — why this only bites in the cloud:</strong> Locally, <code>cds watch</code> runs in <em>dev</em> mode, so <code>devDependencies</code> are present and <code>tsx</code>/<code>@cap-js/sqlite</code> just work. CF's production install drops them. The rule of thumb: <strong>anything the app needs to <em>run</em> (not just to build or type-check) belongs in <code>dependencies</code>.</strong>
+</div>
+
+---
+
+## 4.3a — Configure XSUAA auth on the CAP backend (`package.json`)
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Concept — the backend has its own lock, and it must match the router.</strong> Securing the App Router (§4.2) is only <em>half</em> the job. The CAP backend authenticates requests independently, and its strategy is <strong>profile-dependent</strong>: locally you want quick <code>mocked</code> users (no real login), but in the deployed <code>production</code> profile you want real <strong>XSUAA</strong> token validation. We set both explicitly so dev stays frictionless and the cloud stays secured.</em>
+</div>
+
+CAP reads its auth strategy from `cds.requires.auth` in **`package.json`** (the CAP project's `package.json`, the one with the `cds` block — not the UI app's). Use **`mocked`** for development and override the **`[production]`** profile to **`xsuaa`**:
+
+```jsonc
+{
+  "cds": {
+    "requires": {
+      "auth": {
+        "kind": "mocked"            // development: mock users, no real login
+      },
+      "[production]": {
+        "auth": {
+          "kind": "xsuaa",          // deployed: validate real XSUAA tokens
+          "restrict_all_services": false
+        }
+      }
+    }
+  }
+}
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+<table>
+<tr>
+<th>🧪 Development (<code>cds watch</code>)</th>
+<th>☁️ Production (deployed on CF)</th>
+</tr>
+<tr>
+<td valign="top">
+
+```text
+auth.kind: "mocked"
+→ no XSUAA needed locally
+→ built-in mock users
+→ fast inner loop, no login popups
+```
+
+</td>
+<td valign="top">
+
+```text
+[production] auth.kind: "xsuaa"
+→ every request validated against
+  the bound manageorder-uaa instance
+→ token must come from BTP login
+→ secured app
+```
+
+</td>
+</tr>
+</table>
+
+<sub><b>code by anubhav trainings</b></sub>
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Concept — <code>restrict_all_services: false</code>:</strong> by default, CAP's <code>production</code> profile auto-restricts <strong>every</strong> service to authenticated users. Setting this to <code>false</code> keeps that default <em>off</em> at the blanket level — services are open unless <em>you</em> add explicit <code>@requires</code>/<code>@restrict</code> annotations in your CDS. Authentication still happens (a valid XSUAA token is still required by the router), but you control authorization per-entity instead of locking everything at once.</em>
+</div>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>The three places must agree.</strong> For a secured deploy, all of these must speak xsuaa: <strong>(1)</strong> the App Router — <code>authenticationMethod: "route"</code> + <code>authenticationType: "xsuaa"</code> (§4.2); <strong>(2)</strong> the CAP backend — <code>[production].auth.kind: "xsuaa"</code> here; <strong>(3)</strong> the MTA — the <code>manageorder-uaa</code> xsuaa resource plus <code>requires: manageorder-uaa</code> on both modules (§4.3). The <code>cds add xsuaa</code> command in §4.1 sets up the resource side for you. Miss any one and you get either a deploy-time binding error or a runtime <code>401</code>.
+</div>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>If you need a quick demo without binding XSUAA:</strong> for a throwaway classroom deploy you <em>can</em> relax auth, but do it in all three places or you will get a <code>401</code>: in <code>package.json</code> set <code>"[production]": { "auth": { "kind": "dummy" } }</code>; in <code>xs-app.json</code> set <code>authenticationMethod: "none"</code> and switch the OData + catch-all routes to <code>"authenticationType": "none"</code>; and in <code>mta.yaml</code> remove the <code>manageorder-uaa</code> resource and its two <code>requires</code> lines. <strong>Never ship <code>dummy</code> to a real production tenant</strong> — it makes the data world-readable and -writable.
 </div>
 
 ---
@@ -275,9 +430,10 @@ The three modules, in one sentence each:
 <em>💡 <strong>Concept — the "type gate":</strong> a single command, <code>tsc --noEmit</code>, that checks every <code>.ts</code> file for type errors <strong>without</strong> producing any output files (<code>--noEmit</code> = "check only, write nothing"). If it prints nothing, your types are sound. Teams run this in CI so broken types can never be deployed.</em>
 </div>
 
-Run it from the project root:
+Run it from the **app folder** — `app/manageorder` — because that is where the `ts-typecheck` script and `tsconfig.json` live (we added the script in Step 1):
 
 ```bash
+cd app/manageorder
 npm run ts-typecheck
 ```
 
@@ -288,6 +444,10 @@ tsc --noEmit
 ```
 
 <sub><b>code by anubhav trainings</b></sub>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note — <code>npm error Missing script: "ts-typecheck"</code>?</strong> You are in the wrong folder. The script lives in <code>app/manageorder/package.json</code> (the UI app), <strong>not</strong> in the CAP project root. <code>npm run</code> only sees scripts in the <code>package.json</code> of the directory you are standing in, so <code>cd app/manageorder</code> first. (If you genuinely want to trigger it from the root, add a forwarding script to the root <code>package.json</code> — e.g. <code>"ts-typecheck": "npm --prefix app/manageorder run ts-typecheck"</code> — and then <code>npm run ts-typecheck</code> works from either place.)
+</div>
 
 ### What a passing vs failing gate looks like
 
@@ -339,10 +499,12 @@ Found 1 error in 1 file.
 ## 4.5 — Build and deploy
 
 ```bash
-# 1) prove types are clean
+# 1) prove types are clean (run inside the UI app — that's where the script lives)
+cd app/manageorder
 npm run ts-typecheck
+cd ../..
 
-# 2) bundle the whole MTA (UI + deployer + approuter)
+# 2) bundle the whole MTA (UI + deployer + approuter) — from the project root
 mbt build
 
 # 3) push to Cloud Foundry
@@ -429,37 +591,77 @@ cf deploy mta_archives/com.ats.manageorder_0.0.1.mtar
 </details>
 
 <details>
+<summary><b>package.json (CAP backend — auth profiles)</b></summary>
+
+```jsonc
+{
+  "cds": {
+    "requires": {
+      "auth": {
+        "kind": "mocked"
+      },
+      "[production]": {
+        "auth": {
+          "kind": "xsuaa",
+          "restrict_all_services": false
+        }
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
 <summary><b>mta.yaml</b></summary>
 
 ```yaml
 _schema-version: "3.2"
 ID: com.ats.manageorder
 version: 0.0.1
-description: "Manage Order - SAPUI5 TypeScript app"
+description: "Manage Order - SAPUI5 TypeScript app + CAP backend"
 
 parameters:
   enable-parallel-deployments: true
+  deploy_mode: html5-repo
 
 build-parameters:
   before-all:
     - builder: custom
       commands:
         - npm ci
-        - npm run build
+        - npx cds build --production
 
 modules:
+  - name: manageorder-srv
+    type: nodejs
+    path: gen/srv
+    parameters:
+      buildpack: nodejs_buildpack
+    build-parameters:
+      builder: npm
+    provides:
+      - name: srv-api
+        properties:
+          srv-url: ${default-url}
+    requires:
+      - name: manageorder-uaa
+
   - name: manageorder-ui
     type: html5
-    path: .
+    path: app/manageorder
     build-parameters:
       build-result: dist
       builder: custom
       commands:
+        - npm ci
         - npm run build
       supported-platforms: []
 
   - name: manageorder-ui-deployer
     type: com.sap.application.content
+    path: .
     requires:
       - name: manageorder-html5-repo-host
         parameters:
@@ -478,7 +680,7 @@ modules:
     requires:
       - name: manageorder-html5-repo-runtime
       - name: manageorder-uaa
-      - name: manageorder-srv-api
+      - name: srv-api
         group: destinations
         properties:
           name: manageorder-srv
