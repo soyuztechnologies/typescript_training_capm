@@ -103,8 +103,6 @@ The key difference: `unknown` requires you to check the type before using it. Th
 To safely use an `unknown` value, you must first narrow its type using type guards:
 
 ```typescript
-let w: unknown = { name: "Alice" };
-
 // Type narrowing: Check if w is an object before using it
 if(typeof w === 'object' && w !== null) {
   // Now TypeScript knows w is an object
@@ -161,11 +159,22 @@ Understanding when to use `any` versus `unknown` is crucial for writing safe Typ
 
 ### Block 6: When to Use Unknown
 
+<div style="background-color: #fff3cd; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 4px solid #ffeeba;">
+<strong>🛡️ Concept — Type Guard:</strong> A <em>type guard</em> is any expression that lets TypeScript <em>narrow</em> an <code>unknown</code> (or wider) value down to a more specific type. Inside the <code>true</code> branch of the guard, TypeScript treats the value as that narrower type — so method calls and property access become safe. Common built-in guards:
+<ul>
+<li><code>typeof x === 'string'</code> — narrows to primitives (string, number, boolean, etc.)</li>
+<li><code>Array.isArray(x)</code> — narrows to an array</li>
+<li><code>x instanceof SomeClass</code> — narrows to a class instance</li>
+<li><code>x !== null &amp;&amp; 'prop' in x</code> — checks a property exists on an object</li>
+</ul>
+</div>
+
 ```typescript
 // Perfect use cases for unknown:
 
 // 1. Working with external API responses
 function handleApiResponse(data: unknown) {
+  // Type guard: narrow 'unknown' to a non-null object before using it
   if (typeof data === 'object' && data !== null) {
     const obj = data as Record<string, any>;
     console.log(obj.status);
@@ -174,6 +183,7 @@ function handleApiResponse(data: unknown) {
 
 // 2. Parsing user input
 function parseUserInput(input: unknown) {
+  // Type guard: only proceed if 'input' is actually a string
   if (typeof input === 'string') {
     return JSON.parse(input);
   }
@@ -183,6 +193,31 @@ function parseUserInput(input: unknown) {
 // 3. Migrating from JavaScript gradually
 // unknown forces you to add type checks as you upgrade to TypeScript
 ```
+
+#### Testing the calls
+
+Here's how you'd actually exercise the functions above and what each call does:
+
+```typescript
+// --- Testing handleApiResponse ---
+handleApiResponse({ status: 200 });   // logs: 200 (passes the object type guard)
+handleApiResponse("not an object");   // logs nothing (guard is false, string skipped)
+handleApiResponse(null);              // logs nothing (data !== null blocks it)
+
+// --- Testing parseUserInput ---
+const parsed = parseUserInput('{"name":"Alice"}');
+console.log(parsed);                  // logs: { name: "Alice" } (valid JSON string)
+
+try {
+  parseUserInput(42);                 // not a string -> guard fails
+} catch (e) {
+  console.log((e as Error).message);  // logs: "Invalid input"
+}
+```
+
+<div style="background-color: #d1ecf1; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 4px solid #bee5eb;">
+<strong>💡 Try it yourself:</strong> Run this file with <code>ts-node 2_special_types.ts</code>, or compile with <code>tsc 2_special_types.ts</code> and run the output with <code>node 2_special_types.js</code>. Watch which calls log a value and which are silently skipped — that's the type guard doing its job.
+</div>
 
 <div style="background-color: #f8d7da; padding: 10px; border-radius: 4px; margin: 10px 0; border-left: 4px solid #f5c6cb;">
 <strong>✅ Best Practices:</strong><br>
