@@ -10,7 +10,7 @@
 
 | Concept | JavaScript | TypeScript |
 |---------|-----------|-----------|
-| Lifecycle hook | `onInit: function () {…}` | `public onInit(): void {…}` |
+| Lifecycle hook | `onInit: function () {…}` | `public override onInit(): void {…}` |
 | Event handler | `onSearch: function (oEvent) {…}` | `public onSearch(oEvent: SearchField$SearchEvent): void {…}` |
 | Field on controller | `oField: null` | `private oField?: Input;` |
 | Router | `this.getOwnerComponent().getRouter()` | `(this.getOwnerComponent() as UIComponent).getRouter()` |
@@ -99,7 +99,7 @@ This is the richest controller: it has an `onInit` lifecycle hook, a `fetch()` c
 ### 3.1a — The lifecycle hook `onInit`
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
-<em>💡 <strong>Concept — lifecycle hook:</strong> <code>onInit</code> is a method UI5 calls <strong>automatically</strong> once, when the view is first created. Typing it <code>public onInit(): void</code> tells TypeScript "this returns nothing" and lets the compiler verify we are overriding the real UI5 method correctly.</em>
+<em>💡 <strong>Concept — lifecycle hook:</strong> <code>onInit</code> is a method UI5 calls <strong>automatically</strong> once, when the view is first created. Typing it <code>public override onInit(): void</code> tells TypeScript "this returns nothing" — and the <code>override</code> keyword (required by <code>noImplicitOverride</code> from Step 1) makes the compiler verify we really are overriding the base <code>Controller.onInit</code>, not accidentally inventing a new method.</em>
 </div>
 
 <table>
@@ -154,7 +154,7 @@ import { SearchField$SearchEvent } from "sap/m/SearchField";
 export default class View1 extends BaseController {
     private oRouter: Router;
 
-    public onInit(): void {
+    public override onInit(): void {
         this.oRouter =
           (this.getOwnerComponent() as UIComponent).getRouter() as Router;
         (this.getOwnerComponent() as UIComponent)
@@ -320,7 +320,7 @@ public onItemPress(oEvent: ListBase$SelectionChangeEvent): void {
 <sub><b>code by anubhav trainings</b></sub>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note — the <code>?</code> and <code>!</code> operators:</strong> <code>this.getView()?.byId(...)</code> uses <code>?.</code> ("optional chaining" — skip if null). <code>getBindingContext("orders")!</code> uses <code>!</code> ("non-null assertion" — I am certain this is not null"). They exist because <code>strictNullChecks</code> (from Step 1) forces us to handle the "what if it is null?" case. This is TypeScript pushing us toward safer code.
+📌 <strong>Note — the <code>?</code> and <code>!</code> operators:</strong> <code>this.getView()?.byId(...)</code> uses <code>?.</code> ("optional chaining" — skip if null). <code>getBindingContext("orders")!</code> uses <code>!</code> ("non-null assertion" — "I am certain this is not null"). Our Step 1 <code>tsconfig.json</code> keeps <code>strict: false</code>, so these guards are <strong>not</strong> forced by the compiler yet — we write them as <em>good defensive habit</em> and to future-proof the code for the day you flip <code>strictNullChecks</code> (or full <code>strict</code>) on. Even off, <code>?.</code> still protects against a real <code>null</code> at runtime.
 </div>
 
 ---
@@ -500,7 +500,7 @@ export default class View2 extends BaseController {
     private oSupplierPopup?: SelectDialog;
     private oCityPopup?: SelectDialog;
 
-    public onInit(): void {
+    public override onInit(): void {
         this.oRouter =
           (this.getOwnerComponent() as UIComponent)
             .getRouter() as Router;
@@ -578,7 +578,7 @@ import { ListBase$SelectionChangeEvent } from "sap/m/ListBase";
 export default class View1 extends BaseController {
     private oRouter: Router;
 
-    public onInit(): void {
+    public override onInit(): void {
         // here we need the router object - get it from our Component
         this.oRouter =
             (this.getOwnerComponent() as UIComponent).getRouter() as Router;
@@ -687,6 +687,37 @@ export interface City {
 </details>
 
 <sub><b>code by anubhav trainings</b></sub>
+
+---
+
+## 3.5 — ⚠️ A word on the `?.` and `!` guards (because `strict: false`)
+
+Throughout this step we wrote defensive code like `this.getView()?.byId("idList")` and `getBindingContext("orders")!`. It is important to be honest about **when the compiler forces these and when it does not**.
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note:</strong> Our Step 1 <code>tsconfig.json</code> keeps <code>strict: false</code>, and we did <strong>not</strong> turn on <code>strictNullChecks</code>. That means the editor will <strong>not force</strong> the <code>?.</code> / <code>!</code> guards in these Step 3 controllers — TypeScript currently treats <code>null</code> and <code>undefined</code> as assignable to everything. So in this configuration the guards are <strong>good-practice / future-proofing</strong>, not compiler-required. They still protect you at <em>runtime</em>, and they mean the code already compiles cleanly the day you tighten the settings.</em>
+</div>
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>If you'd prefer them enforced:</strong> add one line to <code>compilerOptions</code> in <code>tsconfig.json</code> and TypeScript will start <em>demanding</em> a guard everywhere a value could be <code>null</code>/<code>undefined</code> (e.g. <code>getView()</code> can be <code>undefined</code>, <code>getBinding("items")</code> can be <code>null</code>).</em>
+</div>
+
+```jsonc
+{
+  "compilerOptions": {
+    "strict": false,
+    "noImplicitAny": true,
+    "noImplicitOverride": true,
+    "strictNullChecks": true   // ← add this to make ?. and ! mandatory
+  }
+}
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note:</strong> Turning on <code>strictNullChecks</code> after the fact will usually surface a batch of new <code>TS2531: Object is possibly 'null'</code> / <code>TS18048: ... is possibly 'undefined'</code> errors across the older controllers. That is expected — it is the compiler pointing at every spot a guard was missing. Because we already wrote the guards in Step 3, those files stay green; you then fix the rest one by one. This is exactly the kind of <strong>gradual tightening</strong> the <code>strict: false</code> + individual-flags approach is designed to allow.
+</div>
 
 ---
 

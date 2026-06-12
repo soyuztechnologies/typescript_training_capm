@@ -15,6 +15,8 @@
 | Formatter | `util/formatter.js` ➜ `util/formatter.ts` | each function gets `(code: string): string` types |
 | Lifecycle | `init: function () {...}` | `public override init(): void {...}` + `super.init()` |
 | Verify | `npm run start` | app renders; `.js` controllers untouched |
+| CAP dev setup (§2.6) | `workspaces: ["app/*"]` + `cds-plugin-ui5` | one `cds watch` serves OData **and** live-transpiled UI5 |
+| Bonus (§2.7) | `ui5 build` → serve `dist/` | test the compiled app; **no** live TS reload |
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
 <em>💡 <strong>Goal of Step 2:</strong> convert the two files that <strong>everything else depends on</strong>. <code>Component.ts</code> boots the whole app; <code>formatter.ts</code> is used by every list and detail screen. Get these right and the rest of the migration is downhill.</em>
@@ -364,6 +366,200 @@ npm run start
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
 📌 <strong>Note:</strong> If the Order Type column suddenly shows raw codes like <code>TA</code> instead of "Standard Order", the formatter import path in <code>BaseController.ts</code> is wrong. Check the relative path <code>"../util/formatter"</code>.
 </div>
+
+---
+
+## 2.6 — Run it the CAP way: `cds-plugin-ui5` + npm workspaces
+
+So far we ran the UI5 app on its own with `npm run start` (a standalone `ui5 serve`). But this app does not live alone — it belongs to the CAP project **`capm-s4-mashup`**, which serves the OData service the app calls (`/odata/v4/catalog/...`). The *standard* CAP + UI5-TypeScript dev setup runs **both** under one command: **`cds watch`**.
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Concept — <code>cds-plugin-ui5</code>:</strong> a plugin for the CAP server. When <code>cds watch</code> starts, it scans your <strong>npm workspaces</strong> for any folder containing a <code>ui5.yaml</code>, and serves that UI5 app <em>through</em> the CAP server — running the very same <code>ui5-tooling-transpile</code> middleware from Step 1. Result: one server, one port, the OData service <strong>and</strong> the live-transpiled TypeScript UI together. No more CORS juggling between two ports.</em>
+</div>
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Concept — npm workspaces:</strong> a way to keep several <code>package.json</code> packages inside one repo and install them together. The CAP project becomes the <strong>root</strong>; the UI5 app becomes a <strong>child workspace</strong>. One <code>npm install</code> at the root installs <em>both</em> dependency sets and hoists shared tools (TypeScript, the transpiler) into a single <code>node_modules</code>.</em>
+</div>
+
+### Step A — Put the app where CAP expects it
+
+The CAP project's `package.json` already points at the app:
+
+```json
+"sapux": [
+  "app/manageorder"
+]
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+So the freestyle app folder (the one holding `webapp/`, `ui5.yaml`, `package.json`) must sit at **`capm-s4-mashup/app/manageorder`**. Move it there if it is not already.
+
+### Step B — Add the workspace + plugin to the CAP root `package.json`
+
+This is the **root** `package.json` you asked us to check — `capm-s4-mashup/package.json`. Today it has **no** `workspaces` key and **no** `cds-plugin-ui5`. Here is exactly what to add:
+
+<table>
+<tr>
+<th>❌ Before — <code>capm-s4-mashup/package.json</code> (today)</th>
+<th>✅ After — workspace + plugin wired</th>
+</tr>
+<tr>
+<td valign="top">
+
+```json
+{
+  "name": "capm-s4-mashup",
+  "version": "1.0.0",
+  "description": "A simple CAP project.",
+  "dependencies": {
+    "@sap/cds": "^9",
+    "express": "^4"
+  },
+  "devDependencies": {
+    "@cap-js/cds-typer": ">=0.1",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "watch": "cds watch"
+  },
+  "private": true,
+  "sapux": [
+    "app/manageorder"
+  ]
+}
+```
+
+</td>
+<td valign="top">
+
+```json
+{
+  "name": "capm-s4-mashup",
+  "version": "1.0.0",
+  "description": "A simple CAP project.",
+  "workspaces": [
+    "app/*"
+  ],
+  "dependencies": {
+    "@sap/cds": "^9",
+    "express": "^4"
+  },
+  "devDependencies": {
+    "@cap-js/cds-typer": ">=0.1",
+    "typescript": "^5.9.3",
+    "cds-plugin-ui5": "^0.16.0"
+  },
+  "scripts": {
+    "watch": "cds watch"
+  },
+  "private": true,
+  "sapux": [
+    "app/manageorder"
+  ]
+}
+```
+
+</td>
+</tr>
+</table>
+
+<sub><b>code by anubhav trainings</b></sub>
+
+Only **two** things changed (the rest of the file stays exactly as it is):
+
+- **`"workspaces": ["app/*"]`** — tells npm "every folder under `app/` is a child package", so `app/manageorder` (with its `typescript`, `ui5-tooling-transpile`, `@openui5/ts-types-esm` devDeps from Step 1) is part of one install.
+- **`"cds-plugin-ui5"` in `devDependencies`** — the plugin that makes `cds watch` serve the UI5 app.
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note:</strong> <code>cds-plugin-ui5</code> is "zero-config" — you do <strong>not</strong> import it or call it anywhere. Simply having it in <code>devDependencies</code> is enough; CAP auto-loads any dependency whose name starts with <code>cds-plugin-</code>. The only requirement is that the UI5 app has a <code>ui5.yaml</code> (it does, from Step 1) and is inside a workspace.
+</div>
+
+### Step C — Install once at the root and run `cds watch`
+
+```bash
+# from the CAP project root: capm-s4-mashup/
+npm install
+cds watch
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+Then open the URL `cds watch` prints. You will see the app listed under the CAP index page, served at something like **`/manageorder/webapp/index.html`** — and:
+
+- ✅ Editing a `.ts` controller → the transpiler runs and the browser **live-reloads** (the `ui5-middleware-livereload` from Step 1 works here too).
+- ✅ The app's `fetch("/odata/v4/catalog/...")` hits the **same server** — no separate port, no CORS.
+- ✅ `cds-typer` keeps regenerating the CAP model types, so the whole stack is TypeScript end-to-end.
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Why this is the recommended setup:</strong> one terminal, one command, one URL. The service and the UI evolve together, your TypeScript is transpiled on the fly, and what you test locally is the same wiring you deploy. This is the workflow we will build on for App Router in Step 4.</em>
+</div>
+
+---
+
+## 2.7 — 🎁 Bonus exercise: serve the **built** output with `ui5 build`
+
+Live `cds watch` transpiles your `.ts` *on every request*. For a final "does the packaged app actually work?" check, you instead **pre-build** the app once and point CAP at the compiled result.
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Concept — <code>ui5 build</code>:</strong> where <code>ui5 serve</code> transpiles in memory, <code>ui5 build</code> writes a real, optimized <code>dist/</code> folder to disk. Your <code>ui5-tooling-transpile-task</code> (registered in <code>ui5.yaml</code> back in Step 1) runs here — so <code>Component.ts</code> comes out as a plain <code>dist/Component.js</code>, with <strong>no TypeScript left at all</strong>. That <code>dist/</code> is exactly what gets deployed.</em>
+</div>
+
+### Step A — Build the app
+
+```bash
+# from app/manageorder/
+npm run build      # → ui5 build --clean-dest
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+Look inside the new `app/manageorder/dist/` folder: you will find `Component.js`, `controller/*.js`, `util/formatter.js` — every `.ts` has become transpiled `.js`. There is **no `.ts` file** in `dist/`.
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note:</strong> This is proof of the Step 1 promise — <em>the browser never runs your TypeScript</em>. <code>dist/Component.js</code> is the classic <code>sap.ui.define([...])</code> form, rebuilt automatically from your modern <code>class Component extends UIComponent</code>.
+</div>
+
+### Step B — Point CAP at the built output
+
+For a quick packaged-mode test, serve the static `dist/` folder from the CAP server instead of the live source. Add a tiny custom server hook to the CAP project:
+
+```ts
+// capm-s4-mashup/srv/server.ts
+import cds from "@sap/cds";
+import express from "express";
+import path from "path";
+
+cds.on("bootstrap", (app) => {
+  // serve the PRE-BUILT UI5 app (plain JS, no live transpile)
+  app.use(
+    "/manageorder",
+    express.static(path.join(__dirname, "../app/manageorder/dist"))
+  );
+});
+
+export default cds.server;
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+Now start CAP normally and open `/manageorder/index.html` — you are running the **compiled** app against the live OData service.
+
+```bash
+# from capm-s4-mashup/
+cds watch
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note — the trade-off:</strong> serving <code>dist/</code> means you <strong>lose live TypeScript reload</strong>. Every code change now requires a fresh <code>npm run build</code> before you can see it. So use this mode <strong>only</strong> for packaged / pre-deploy testing — confirming the built artifact behaves — and switch back to §2.6's <code>cds watch</code> for everyday development.
+</div>
+
+| Mode | Command | Live TS reload? | Use it for |
+|------|---------|-----------------|-----------|
+| **Dev** (§2.6) | `cds watch` + `cds-plugin-ui5` | ✅ yes | day-to-day coding |
+| **Packaged** (§2.7) | `ui5 build` → serve `dist/` | ❌ no | final deploy sanity check |
 
 ---
 

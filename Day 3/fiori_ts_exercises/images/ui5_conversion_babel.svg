@@ -76,7 +76,7 @@
   <text x="210" y="512" text-anchor="middle" font-size="13" font-weight="700" fill="#0d47a1">package.json</text>
   <text x="210" y="536" text-anchor="middle" font-size="11" fill="#1565c0">npm i -D typescript</text>
   <text x="210" y="554" text-anchor="middle" font-size="11" fill="#1565c0">npm i -D ui5-tooling-transpile</text>
-  <text x="210" y="570" text-anchor="middle" font-size="11" fill="#1565c0">npm i -D @sapui5/types</text>
+  <text x="210" y="570" text-anchor="middle" font-size="11" fill="#1565c0">npm i -D @openui5/ts-types-esm</text>
 
   <rect x="365" y="486" width="280" height="92" rx="10" fill="#ffffff" stroke="#a5d6a7"/>
   <text x="505" y="512" text-anchor="middle" font-size="13" font-weight="700" fill="#1b5e20">ui5.yaml</text>
@@ -86,7 +86,7 @@
 
   <rect x="660" y="486" width="280" height="92" rx="10" fill="#ffffff" stroke="#80deea"/>
   <text x="800" y="512" text-anchor="middle" font-size="13" font-weight="700" fill="#006064">tsconfig.json</text>
-  <text x="800" y="536" text-anchor="middle" font-size="11" fill="#0097a7">strict, target ES2022</text>
-  <text x="800" y="554" text-anchor="middle" font-size="11" fill="#0097a7">types: ["@sapui5/types"]</text>
-  <text x="800" y="570" text-anchor="middle" font-size="11" fill="#0097a7">module: preserve</text>
+  <text x="800" y="536" text-anchor="middle" font-size="11" fill="#0097a7">target ES2022, bundler</text>
+  <text x="800" y="554" text-anchor="middle" font-size="11" fill="#0097a7">types: @openui5/ts-types-esm</text>
+  <text x="800" y="570" text-anchor="middle" font-size="11" fill="#0097a7">module: ES2022</text>
 </svg>

@@ -13,6 +13,7 @@
 | Install transpiler | `npm i -D ui5-tooling-transpile` | turns `.ts` into UI5-style `.js` on the fly |
 | Install compiler | `npm i -D typescript` | the `tsc` type-checker |
 | Install UI5 types | `npm i -D @openui5/ts-types-esm` | teaches TypeScript what `sap.m.Button` etc. look like |
+| Install live reload | `npm i -D ui5-middleware-livereload` | auto-refreshes the browser when a `.ts`/view file is saved |
 | Add middleware | `ui5.yaml` → `server.customMiddleware` | transpile while you **serve** |
 | Add build task | `ui5.yaml` → `builder.customTasks` | transpile while you **build** |
 | Add compiler config | `tsconfig.json` | tells `tsc` how strict to be |
@@ -50,12 +51,33 @@ npm install --save-dev typescript
 npm install --save-dev ui5-tooling-transpile
 npm install --save-dev @openui5/ts-types-esm
 npm install --save-dev @ui5/cli
+npm install --save-dev ui5-middleware-livereload
 ```
 
 <sub><b>code by anubhav trainings</b></sub>
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
 <em>💡 <strong>Concept — <code>--save-dev</code>:</strong> these tools are only needed on the <strong>developer's machine</strong> (to build the app), never inside the shipped app. So they go in <code>devDependencies</code>, not <code>dependencies</code>.</em>
+</div>
+
+What each dev dependency is for:
+
+| Package | Version | Job in plain words |
+|---------|---------|--------------------|
+| `typescript` | `^5.3.0` | the compiler/type-checker (`tsc`) that understands `.ts` and reports type errors |
+| `@openui5/ts-types-esm` | `^1.120.0` | the UI5 type definitions — teaches TypeScript every `sap/...` module (`Button`, `Controller`, …) |
+| `ui5-tooling-transpile` | `^3.2.0` | the Babel-based transpiler that turns your `.ts` into UI5-style `.js` on serve/build |
+| `@ui5/cli` | `^4.0.0` | the `ui5` command itself (`ui5 serve`, `ui5 build`) — the engine the above plug into |
+| `ui5-middleware-livereload` | `^3.1.4` | watches your source and **auto-refreshes the browser** the instant you save a file |
+
+<sub><b>code by anubhav trainings</b></sub>
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Concept — <code>^</code> (caret) versions:</strong> <code>^1.120.0</code> means "install <code>1.120.0</code> or any newer <code>1.x</code>, but never <code>2.0</code>". So even though the app boots UI5 <code>1.149.0</code>, the caret on <code>@openui5/ts-types-esm ^1.120.0</code> happily pulls the latest matching <code>1.x</code> types — staying compatible without you re-pinning the number on every UI5 patch.</em>
+</div>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note — why <code>ui5-middleware-livereload</code>?</strong> Without it you must press <kbd>F5</kbd> after every change. With it, saving a <code>.ts</code> controller or an <code>.xml</code> view reloads the running app automatically — a big time-saver during the many small conversions ahead. It is a <strong>serve-only</strong> middleware, so we register it in <code>ui5.yaml</code> alongside the transpiler (see §1.2) and it never ships to production.
 </div>
 
 ### Old vs New — `package.json`
@@ -99,10 +121,11 @@ npm install --save-dev @ui5/cli
     "ts-typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@openui5/ts-types-esm": "1.149.0",
+    "@openui5/ts-types-esm": "^1.120.0",
     "@ui5/cli": "^4.0.0",
-    "typescript": "^5.5.0",
-    "ui5-tooling-transpile": "^3.0.0"
+    "typescript": "^5.3.0",
+    "ui5-tooling-transpile": "^3.2.0",
+    "ui5-middleware-livereload": "^3.1.4"
   }
 }
 ```
@@ -114,7 +137,7 @@ npm install --save-dev @ui5/cli
 <sub><b>code by anubhav trainings</b></sub>
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
-📌 <strong>Note:</strong> Match the <code>@openui5/ts-types-esm</code> version to the UI5 version your app bootstraps with. In <code>webapp/index.html</code> this app loads <code>1.149.0</code>, so we pin the types to <code>1.149.0</code> too. Mismatched versions = wrong autocomplete. (<code>@openui5/ts-types-esm</code> is the free OpenUI5 type set; the SAPUI5 equivalent is <code>@sapui5/types</code> — pick one and stay consistent.)
+📌 <strong>Note:</strong> Keep the <code>@openui5/ts-types-esm</code> major line aligned with the UI5 version your app bootstraps with. This app loads <code>1.149.0</code> in <code>webapp/index.html</code>; the caret range <code>^1.120.0</code> resolves to the newest <code>1.x</code> types (so it happily covers <code>1.149</code>) without you re-pinning on every patch. Mismatched <em>major</em> versions = wrong autocomplete. (<code>@openui5/ts-types-esm</code> is the free OpenUI5 type set; the SAPUI5 equivalent is <code>@sapui5/types</code> — pick one and stay consistent.)
 </div>
 
 ---
@@ -163,6 +186,13 @@ server:
       afterMiddleware: compression
       configuration:
         debugInformation: true
+    - name: ui5-middleware-livereload
+      afterMiddleware: compression
+      configuration:
+        debug: true
+        ext: "html,js,json,ts,xml,properties"
+        port: 35729
+        path: "webapp"
 ```
 
 </td>
@@ -178,6 +208,7 @@ What each new line means, in plain words:
 - **`server.customMiddleware`** — the transpiler that runs during `ui5 serve`.
 - **`afterTask` / `afterMiddleware`** — *when* in the pipeline our transpiler runs (after compression / after the version is replaced).
 - **`debugInformation: true`** — keeps source maps so the browser debugger shows your **`.ts`** code, not the generated `.js`.
+- **`ui5-middleware-livereload`** — the second middleware: it watches the file types in `ext` (note we include `ts` and `xml`) and reloads the browser on save. `port: 35729` is the standard LiveReload port; `path: "webapp"` is the folder it watches.
 
 <div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
 📌 <strong>Note:</strong> The names <code>ui5-tooling-transpile-task</code> and <code>ui5-tooling-transpile-middleware</code> are <strong>fixed</strong> — they are defined by the package you installed. A typo here means UI5 silently skips transpiling and your <code>.ts</code> files will 404 in the browser.
@@ -427,6 +458,13 @@ server:
       afterMiddleware: compression
       configuration:
         debugInformation: true
+    - name: ui5-middleware-livereload
+      afterMiddleware: compression
+      configuration:
+        debug: true
+        ext: "html,js,json,ts,xml,properties"
+        port: 35729
+        path: "webapp"
 ```
 
 </details>
