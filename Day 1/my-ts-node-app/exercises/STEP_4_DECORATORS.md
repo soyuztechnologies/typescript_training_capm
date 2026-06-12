@@ -6,17 +6,45 @@ Welcome to Step 4! Decorators are one of TypeScript's most powerful features. Im
 
 A *decorator* is a special function that modifies a class, method, property, or parameter. It runs when the code is defined, not when it's executed.
 
+Throughout this step, each block is shown **side by side**:
+
+- 🟦 **TypeScript with decorators — what we write now** (inline comments explain the advantage)
+- ⬜ **JavaScript — what we wrote before** (gray background, the manual wrapping we did without decorators)
+
+> **Note:** Decorators are largely a TypeScript feature (the JS version is still stabilizing). The gray column shows how we achieved the *same effect* in plain JS — usually by manually wrapping functions. That's exactly why decorators were created: to make this pattern clean and reusable.
+
+---
+
+## 📋 Decorator Concept Cheatsheet
+
+| Concept | TypeScript Syntax | What It Does | How We Did It in JS Before |
+|---------|-------------------|--------------|----------------------------|
+| **Method decorator** | `@LogMethod` above a method | Wraps the method with extra behavior | Manually reassigned the function: `obj.fn = wrap(obj.fn)` |
+| **Decorator function** | `function LogMethod(target, key, descriptor)` | Receives the method and returns a modified version | A higher-order function `withLogging(fn)` |
+| **PropertyDescriptor** | `descriptor.value` | The actual method being decorated | `Object.getOwnPropertyDescriptor(...)` by hand |
+| **`this` binding** | `ctrl.getAll.bind(ctrl)` | Keeps `this` pointing at the instance | Same `.bind()` — a shared JS concept |
+| **reflect-metadata** | `Reflect.defineMetadata(...)` | Stores type info readable at runtime | No standard equivalent existed |
+| **Enable in tsconfig** | `"experimentalDecorators": true` | Turns the `@` syntax on | n/a — JS had no `@` syntax |
+
+> 💡 A decorator is just **syntactic sugar** over "take this function and replace it with a wrapped version." You did that by hand in JS; `@` makes it declarative and reusable.
+
 ---
 
 ## Enabling Decorators in tsconfig.json
 
-First, we need to enable experimental decorators in our `tsconfig.json`:
+<table>
+<tr>
+<th width="50%">🟦 TypeScript — enable decorators</th>
+<th width="50%">⬜ JavaScript — nothing to enable</th>
+</tr>
+<tr>
+<td>
 
 ```json
 {
   "compilerOptions": {
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true, // turns on @Decorator syntax
+    "emitDecoratorMetadata": true,  // needed for reflect-metadata
     "target": "esnext",
     "module": "nodenext",
     "lib": ["esnext"]
@@ -24,66 +52,121 @@ First, we need to enable experimental decorators in our `tsconfig.json`:
 }
 ```
 
-<sub>code by anubhav trainings</sub>
+</td>
+<td style="background-color:#f0f0f0">
+
+```javascript
+// No config. JavaScript has no '@' decorator syntax to enable,
+// so wrapping behavior was always written out by hand.
+```
+
+</td>
+</tr>
+</table>
 
 **What these settings do:**
-
 - **`experimentalDecorators: true`** — Enables decorator syntax (`@DecoratorName`)
-- **`emitDecoratorMetadata: true`** — Generates metadata at runtime (needed for `reflect-metadata`)
-- **`target: esnext`** — Modern JavaScript version that supports decorators
+- **`emitDecoratorMetadata: true`** — Generates runtime metadata (needed for `reflect-metadata`)
+- **`target: esnext`** — Modern JS version that supports decorators
 
 ---
 
 ## Installing Reflect-Metadata
-
-Decorators need runtime metadata support. Install the `reflect-metadata` library:
 
 ```bash
 npm install reflect-metadata
 npm install -D @types/reflect-metadata
 ```
 
-<sub>code by anubhav trainings</sub>
-
-Then import it at the top of your main file:
+Then import it once at the very top of your entry file:
 
 ```typescript
 import 'reflect-metadata';  // Must be at the very top!
 ```
 
-<sub>code by anubhav trainings</sub>
-
-> 💡 **Pro Tip:** Import `reflect-metadata` once at your application's entry point (your main server file).
+> 💡 **Pro Tip:** Import `reflect-metadata` once at your application's entry point.
 
 ---
 
-## Creating Your First Decorator: LogMethod
+## The Core Idea: Wrapping a Method
 
-Let's create a decorator that automatically logs when a method is called, what arguments it receives, what it returns, and how long it took:
+Before the decorator syntax, here's the *same logging behavior* done both ways:
+
+<table>
+<tr>
+<th width="50%">🟦 TypeScript — declarative decorator</th>
+<th width="50%">⬜ JavaScript — manual wrapping</th>
+</tr>
+<tr>
+<td>
+
+```typescript
+// Declare ONCE, reuse with @LogMethod everywhere.
+class Calculator {
+  @LogMethod                       // ← that's it
+  add(a: number, b: number): number {
+    return a + b;
+  }
+}
+```
+
+</td>
+<td style="background-color:#f0f0f0">
+
+```javascript
+// You had to wrap each method by hand, every time.
+class Calculator {
+  add(a, b) { return a + b; }
+}
+const calc = new Calculator();
+
+const original = calc.add.bind(calc);
+calc.add = (a, b) => {
+  console.log('[LOG] Calling add with args:', [a, b]);
+  const result = original(a, b);
+  console.log('[LOG] add returned:', result);
+  return result;
+};
+// Repetitive, error-prone, and clutters business logic.
+```
+
+</td>
+</tr>
+</table>
+
+> 💡 **TS advantage:** The decorator moves all that wrapping boilerplate into one reusable function, and applying it is a single readable line: `@LogMethod`.
+
+---
+
+## Creating the LogMethod Decorator
+
+<table>
+<tr>
+<th width="50%">🟦 TypeScript — reusable decorator</th>
+<th width="50%">⬜ JavaScript — reusable HOF equivalent</th>
+</tr>
+<tr>
+<td>
 
 ```typescript
 // logger.decorator.ts
 import 'reflect-metadata';
 
-// ─────────────────────────────────────────────
-// METHOD DECORATOR
-// Wraps a method to log its name, arguments, 
-// return value, and execution time automatically
-// ─────────────────────────────────────────────
-
+// A method decorator receives the prototype, the method
+// name, and the PropertyDescriptor that holds the method.
 export function LogMethod(
-  _target: object,                    // prototype of the class
-  propertyKey: string,               // name of the method
-  descriptor: PropertyDescriptor     // contains the original method
+  _target: object,                 // prototype of the class
+  propertyKey: string,             // name of the method
+  descriptor: PropertyDescriptor   // contains the original method
 ): PropertyDescriptor {
 
-  const originalMethod = descriptor.value; // save original method
+  const originalMethod = descriptor.value; // save the original
 
   descriptor.value = function (...args: unknown[]) {
     console.log(`[LOG] Calling ${propertyKey} with args:`, args);
 
     const start = Date.now();
-    const result: unknown = originalMethod.apply(this, args); // call original
+    const result: unknown = originalMethod.apply(this, args);
     const duration = Date.now() - start;
 
     console.log(`[LOG] ${propertyKey} returned:`, result);
@@ -92,173 +175,391 @@ export function LogMethod(
     return result;
   };
 
-  return descriptor;
+  return descriptor; // TS swaps the original method for our wrapper
 }
 ```
 
-<sub>code by anubhav trainings</sub>
+</td>
+<td style="background-color:#f0f0f0">
 
----
-
-## Understanding the Decorator Parameters
-
-When you create a method decorator, it receives three parameters:
-
-### Parameter 1: `target` (The Class Prototype)
-
-```typescript
-export function LogMethod(
-  _target: object,  // ← This parameter
-  propertyKey: string,
-  descriptor: PropertyDescriptor
-) { ... }
-```
-
-**What is it?** The prototype of the class (the parent object that contains the method).
-
-**Example:**
-```typescript
-class User {
-  @LogMethod
-  getName() { return 'John'; }
+```javascript
+// The closest JS equivalent: a higher-order function you
+// must remember to call on every method yourself.
+function withLogging(fn, name) {
+  return function (...args) {
+    console.log('[LOG] Calling ' + name + ' with args:', args);
+    const start = Date.now();
+    const result = fn.apply(this, args);
+    console.log('[LOG] ' + name + ' returned:', result);
+    console.log('[LOG] ' + name + ' took ' + (Date.now() - start) + 'ms');
+    return result;
+  };
 }
-
-// When @LogMethod runs:
-// _target = User.prototype
-// _target.constructor.name = 'User'
+// Usage: obj.add = withLogging(obj.add, 'add');
+// No '@' sugar — you wire it up manually at each call site.
 ```
 
----
+</td>
+</tr>
+</table>
 
-### Parameter 2: `propertyKey` (The Method Name)
+### Understanding the three decorator parameters
 
-```typescript
-export function LogMethod(
-  _target: object,
-  propertyKey: string,  // ← This parameter
-  descriptor: PropertyDescriptor
-) { ... }
-```
+- **`target`** — The class prototype (parent object holding the method). `target.constructor.name` gives the class name.
+- **`propertyKey`** — The name of the decorated method (e.g. `'getAll'`).
+- **`descriptor`** — Describes the method:
+  - `descriptor.value` — the actual function
+  - `descriptor.writable` / `enumerable` / `configurable` — its flags
 
-**What is it?** The name of the method being decorated.
+### How it works, step by step
 
-**Example:**
-```typescript
-class User {
-  @LogMethod
-  getName() { return 'John'; }  // propertyKey = 'getName'
-  
-  @LogMethod
-  getEmail() { return 'john@mail.com'; }  // propertyKey = 'getEmail'
-}
-```
-
----
-
-### Parameter 3: `descriptor` (The Property Descriptor)
-
-```typescript
-export function LogMethod(
-  _target: object,
-  propertyKey: string,
-  descriptor: PropertyDescriptor  // ← This parameter
-) { ... }
-```
-
-**What is it?** An object describing the method, including:
-- `descriptor.value` — The actual method function
-- `descriptor.writable` — Can it be overwritten?
-- `descriptor.enumerable` — Does it show up in `for...in` loops?
-- `descriptor.configurable` — Can its configuration be changed?
-
-**Example:**
-```typescript
-// descriptor looks like:
-{
-  value: function() { ... },  // The actual method
-  writable: true,             // Can be reassigned
-  enumerable: false,
-  configurable: true
-}
-```
-
----
-
-## Step-by-Step: How the LogMethod Decorator Works
-
-### Step 1: Save the Original Method
-
-```typescript
-const originalMethod = descriptor.value;
-```
-
-We store the original method so we can call it later.
-
-### Step 2: Create a Wrapper Function
-
-```typescript
-descriptor.value = function (...args: unknown[]) {
-  // This new function wraps the original
-};
-```
-
-We replace the method with a wrapper function that will:
-1. Log before calling the original
-2. Call the original
-3. Log after calling the original
-
-### Step 3: Log Before Execution
-
-```typescript
-console.log(`[LOG] Calling ${propertyKey} with args:`, args);
-```
-
-This prints something like:
-```
-[LOG] Calling getAll with args: [Request, Response]
-```
-
-### Step 4: Track Execution Time
-
-```typescript
-const start = Date.now();
-const result: unknown = originalMethod.apply(this, args);
-const duration = Date.now() - start;
-```
-
-- `Date.now()` — Gets current millisecond timestamp
-- `originalMethod.apply(this, args)` — Calls the original method
-  - `this` — Preserves the method's context
-  - `args` — Passes all arguments
-- `duration` — How long the method took
-
-### Step 5: Log After Execution
-
-```typescript
-console.log(`[LOG] ${propertyKey} returned:`, result);
-console.log(`[LOG] ${propertyKey} took ${duration}ms`);
-return result;
-```
-
-This prints something like:
-```
-[LOG] getAll returned: { data: [...], success: true }
-[LOG] getAll took 2ms
-```
-
-### Step 6: Return the Modified Descriptor
-
-```typescript
-return descriptor;
-```
-
-JavaScript replaces the original method with our wrapper.
+1. **Save the original:** `const originalMethod = descriptor.value;`
+2. **Replace with a wrapper:** `descriptor.value = function (...args) { ... }`
+3. **Log before:** `console.log('[LOG] Calling ...')`
+4. **Time the call:** `Date.now()` around `originalMethod.apply(this, args)`
+5. **Log after & return:** print the result/duration, then `return result`
+6. **Return the descriptor:** TS installs the wrapper in place of the original
 
 ---
 
 ## Using the Decorator: 3_server.ts
 
-Now let's use the `@LogMethod` decorator in our Express server. **Important:** Decorators only work on class methods, so we need to move our route handlers into a class:
+Decorators only work on **class methods**, so we move our route handlers into a class.
+
+<table>
+<tr>
+<th width="50%">🟦 TypeScript — class + decorators</th>
+<th width="50%">⬜ JavaScript — plain functions + manual logging</th>
+</tr>
+<tr>
+<td>
+
+```typescript
+class UserController {
+  @LogMethod                        // logging added declaratively
+  getAll(_req: Request, res: Response): void {
+    const response: ApiResponse<User[]> = { data: users, success: true };
+    res.json(response);
+  }
+}
+
+const ctrl = new UserController();
+// .bind(ctrl) preserves 'this' when Express calls the handler.
+app.get('/api/users', ctrl.getAll.bind(ctrl));
+```
+
+</td>
+<td style="background-color:#f0f0f0">
+
+```javascript
+// No decorators — logging is copy-pasted into each handler,
+// or each handler is manually wrapped before registration.
+function getAll(req, res) {
+  console.log('[LOG] Calling getAll');   // repeated everywhere
+  res.json({ data: users, success: true });
+}
+
+app.get('/api/users', getAll);
+```
+
+</td>
+</tr>
+</table>
+
+Here's the full controller version (`3_server.ts` is given complete at the end of this document):
+
+```typescript
+class UserController {
+
+  @LogMethod  // ✅ valid — this is a class method
+  getAll(_req: Request, res: Response): void {
+    const response: ApiResponse<User[]> = { data: users, success: true };
+    res.json(response);
+  }
+
+  @LogMethod
+  getById(req: Request<UserParams>, res: Response): void {
+    const rawId: string = req.params['id'] ?? '';
+    const parsedId: number = parseInt(rawId, 10);
+
+    if (isNaN(parsedId)) {
+      res.status(400).json({ message: 'Invalid ID', success: false });
+      return;
+    }
+
+    const user = users.find((u: User) => u.id === parsedId);
+    if (!user) {
+      res.status(404).json({ message: 'User not found', success: false });
+      return;
+    }
+
+    res.json({ data: user, success: true });
+  }
+
+  @LogMethod
+  create(req: Request<{}, {}, CreateUserBody>, res: Response): void {
+    const { username, email } = req.body;
+
+    if (!username?.trim() || !email?.trim()) {
+      res.status(400).json({ message: 'Username and email are required', success: false });
+      return;
+    }
+
+    const newUser: User = { id: users.length + 1, username, email };
+    users.push(newUser);
+    res.status(201).json({ data: newUser, success: true });
+  }
+}
+```
+
+---
+
+## Important: Binding `this` Context
+
+This is a shared JavaScript concept — but it bites hardest when passing class methods as handlers.
+
+<table>
+<tr>
+<th width="50%">🟦 TypeScript</th>
+<th width="50%">⬜ JavaScript (same rule)</th>
+</tr>
+<tr>
+<td>
+
+```typescript
+const ctrl = new UserController();
+
+// ❌ WRONG: 'this' is lost
+app.get('/api/users', ctrl.getAll);
+
+// ✅ CORRECT: 'this' is preserved
+app.get('/api/users', ctrl.getAll.bind(ctrl));
+```
+
+</td>
+<td style="background-color:#f0f0f0">
+
+```javascript
+const ctrl = new UserController();
+
+// Identical pitfall in plain JS:
+const handler = ctrl.getData;
+handler();                 // ❌ 'this' is undefined
+
+const bound = ctrl.getData.bind(ctrl);
+bound();                   // ✅ 'this' is ctrl
+```
+
+</td>
+</tr>
+</table>
+
+**Alternative: arrow functions capture `this` automatically:**
+```typescript
+const ctrl = new UserController();
+app.get('/api/users', () => ctrl.getAll());  // ✅ Works
+```
+
+---
+
+## Type Definitions for Our Types
+
+Create `src/types/user.d.ts`:
+
+```typescript
+// user.d.ts — all User related types live here
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+}
+
+export interface CreateUserBody {
+  username: string;
+  email: string;
+}
+
+export interface UserParams {
+  id: string; // route params are always strings in HTTP
+}
+
+export interface ApiResponse<T> {
+  data?: T;
+  message?: string;
+  success: boolean;
+}
+```
+
+> ⬜ **In JS before:** none of this existed. There was no way to declare these shapes, so every handler re-validated by hand and the "contract" lived only in your head.
+
+And `src/types/index.d.ts` as a barrel file:
+
+```typescript
+// index.d.ts — re-exports everything so consumers import from one place
+export type { User, CreateUserBody, UserParams, ApiResponse } from './user';
+```
+
+---
+
+## Different Types of Decorators
+
+```typescript
+class UserController { @LogMethod getAll() {} }   // 1. Method
+class User { @Validate username!: string; }        // 2. Property
+class C { getUser(@ValidateId id: number) {} }     // 3. Parameter
+@Injectable class Service {}                        // 4. Class
+```
+
+---
+
+## Real-World Use Cases
+
+```typescript
+@LogMethod          getUser() {}              // logging
+@RequireAuth        deleteUser() {}           // authentication
+@ValidateInput      createUser(d: unknown) {} // validation
+@Cacheable({ttl:60000}) getUser(id: number){} // caching
+```
+
+Each of these in plain JS meant manually wrapping the function or pasting boilerplate into every method.
+
+---
+
+## Decorator Metadata with Reflect-Metadata
+
+```typescript
+import 'reflect-metadata';
+
+function StoreMetadata(metadata: string) {
+  return function (target: object, propertyKey: string) {
+    Reflect.defineMetadata('custom', metadata, target, propertyKey);
+  };
+}
+
+class UserController {
+  @StoreMetadata('This method gets all users')
+  getAll() {}
+}
+
+const meta = Reflect.getMetadata('custom', UserController.prototype, 'getAll');
+console.log(meta);  // "This method gets all users"
+```
+
+> ⬜ **In JS before:** there was no standard way to attach and later read this kind of structured metadata — people abused property names or maintained separate lookup objects.
+
+---
+
+## Common Pattern: Before/After
+
+```typescript
+function BeforeAfter(
+  target: object,
+  propertyKey: string,
+  descriptor: PropertyDescriptor
+): PropertyDescriptor {
+  const originalMethod = descriptor.value;
+
+  descriptor.value = function (...args: unknown[]) {
+    console.log(`🔵 Before ${propertyKey}`);
+    const result = originalMethod.apply(this, args);
+    console.log(`🟢 After ${propertyKey}`);
+    return result;
+  };
+
+  return descriptor;
+}
+```
+
+---
+
+## Testing Your Decorator
+
+```typescript
+import 'reflect-metadata';
+import { LogMethod } from './decorators/logger.decorator';
+
+class Calculator {
+  @LogMethod
+  add(a: number, b: number): number { return a + b; }
+
+  @LogMethod
+  multiply(a: number, b: number): number { return a * b; }
+}
+
+const calc = new Calculator();
+console.log('Result:', calc.add(5, 3));
+console.log('Result:', calc.multiply(4, 7));
+```
+
+**Expected output:**
+```
+[LOG] Calling add with args: [ 5, 3 ]
+[LOG] add returned: 8
+[LOG] add took 1ms
+Result: 8
+[LOG] Calling multiply with args: [ 4, 7 ]
+[LOG] multiply returned: 28
+[LOG] multiply took 0ms
+Result: 28
+```
+
+---
+
+<div style="background-color: #90EE90; padding: 15px; border-radius: 8px; margin-top: 20px;">
+
+**🎯 Key Concepts:**
+
+**Decorator** — A function that wraps a class, method, property, or parameter to add behavior
+
+**@LogMethod** — Our custom decorator that logs calls, args, return values, and timing
+
+**PropertyDescriptor** — Object containing the method and its configuration
+
+**Reflect-Metadata** — Library that stores/retrieves type information at runtime
+
+**this binding** — Use `.bind(this)` when passing class methods as function arguments
+
+</div>
+
+---
+
+<div style="background-color: #FFE4E1; padding: 15px; border-radius: 8px; margin-top: 20px;">
+
+**📝 Key Takeaways:**
+
+1. **Enable decorators** in tsconfig.json with `"experimentalDecorators": true`
+2. **Import reflect-metadata** at the very top of your main file
+3. **Decorators modify behavior** without changing the original code
+4. **Method decorators** receive `(target, propertyKey, descriptor)`
+5. **Save the original method** with `const original = descriptor.value`
+6. **Replace with a wrapper** that adds logging, validation, caching, etc.
+7. **Binding matters** — Use `.bind(this)` when passing methods as handlers
+8. **Class methods only** — Decorators work on class methods, not standalone functions
+9. **The JS we wrote before** did all of this by hand — decorators just make the pattern declarative and reusable
+
+</div>
+
+---
+
+## Running with Decorators
+
+```bash
+npm run build
+npm start
+```
+
+When you make a request, you'll see decorator logs:
+```
+[LOG] Calling getAll with args: [Request, Response]
+[LOG] getAll returned: {data: [...], success: true}
+[LOG] getAll took 2ms
+```
+
+---
+
+## Complete `3_server.ts` Code
+
+Now that you've seen each piece and how it compares to plain JavaScript, here is the full file to create as `src/3_server.ts`:
 
 ```typescript
 import express from 'express';
@@ -289,7 +590,7 @@ class UserController {
     res.json(response);
   }
 
-  @LogMethod  // ✅ valid — this is a class method
+  @LogMethod
   getById(req: Request<UserParams>, res: Response): void {
     const rawId: string = req.params['id'] ?? '';
     const parsedId: number = parseInt(rawId, 10);
@@ -309,7 +610,7 @@ class UserController {
     res.json({ data: user, success: true });
   }
 
-  @LogMethod  // ✅ valid — this is a class method
+  @LogMethod
   create(req: Request<{}, {}, CreateUserBody>, res: Response): void {
     const { username, email } = req.body;
 
@@ -325,9 +626,9 @@ class UserController {
 }
 
 // ─────────────────────────────────────────────
-// Instantiate and bind — 'this' must be bound
-// or arrow functions used, otherwise 'this' is
-// lost when Express calls the handler
+// Instantiate and bind — 'this' must be bound or
+// arrow functions used, otherwise 'this' is lost
+// when Express calls the handler
 // ─────────────────────────────────────────────
 const ctrl = new UserController();
 
@@ -345,387 +646,36 @@ app.listen(PORT, (): void => {
 });
 ```
 
-<sub>code by anubhav trainings</sub>
-
----
-
-## Important: Binding `this` Context
-
-When you use class methods as route handlers, you must preserve the `this` context. Here's why:
-
-```typescript
-const ctrl = new UserController();
-
-// ❌ WRONG: 'this' is lost
-app.get('/api/users', ctrl.getAll);
-
-// ✅ CORRECT: 'this' is preserved
-app.get('/api/users', ctrl.getAll.bind(ctrl));
-```
-
-**What's happening:**
-
-```typescript
-class UserController {
-  data = [1, 2, 3];
-  
-  @LogMethod
-  getData(): void {
-    console.log(this.data);  // Needs 'this' to access data
-  }
-}
-
-const ctrl = new UserController();
-
-// Without .bind():
-const handler = ctrl.getData;
-handler(); // ❌ ERROR: 'this' is undefined
-
-// With .bind():
-const handler = ctrl.getData.bind(ctrl);
-handler(); // ✅ OK: 'this' is ctrl
-```
-
-**Alternative: Use arrow functions:**
-
-```typescript
-// Arrow functions capture 'this' automatically
-const ctrl = new UserController();
-app.get('/api/users', () => ctrl.getAll());  // ✅ Works
-```
-
----
-
-## Type Definitions for Our Types
-
-We need to create type definition files. Create `src/types/user.d.ts`:
-
-```typescript
-// user.d.ts — all User related types live here
-// No imports needed for primitive types in .d.ts files
-
-export interface User {
-  id: number;
-  username: string;
-  email: string;
-}
-
-export interface CreateUserBody {
-  username: string;
-  email: string;
-}
-
-export interface UserParams {
-  id: string; // route params are always strings in HTTP
-}
-
-export interface ApiResponse<T> {
-  data?: T;
-  message?: string;
-  success: boolean;
-}
-```
-
-<sub>code by anubhav trainings</sub>
-
-And create `src/types/index.d.ts` as a barrel file:
-
-```typescript
-// index.d.ts — barrel file, re-exports everything from all type files
-// Consumers import from one place: import type { User } from './types'
-
-export type { User, CreateUserBody, UserParams, ApiResponse } from './user';
-// Add more exports here as your app grows:
-// export type { AuthToken, JwtPayload } from './auth';
-// export type { ProductBody, ProductParams } from './product';
-```
-
-<sub>code by anubhav trainings</sub>
-
----
-
-## How Decorators Work: The Process
-
-Here's the complete flow of what happens when you use `@LogMethod`:
-
-```typescript
-class UserController {
-  @LogMethod
-  getAll(req: Request, res: Response): void {
-    res.json(users);
-  }
-}
-```
-
-**At compile time:**
-1. TypeScript sees `@LogMethod` above the `getAll` method
-2. TypeScript calls `LogMethod` with the descriptor of `getAll`
-3. `LogMethod` returns a modified descriptor
-4. The modified descriptor replaces the original `getAll` method
-
-**At runtime:**
-1. When you call `controller.getAll()`, the wrapper function runs
-2. Wrapper logs the call
-3. Wrapper calls the original method
-4. Wrapper logs the result
-5. Wrapper returns the result
-
-**Console output example:**
-```
-[LOG] Calling getAll with args: [Request, Response]
-[LOG] getAll returned: {data: [...], success: true}
-[LOG] getAll took 1ms
-```
-
----
-
-## Different Types of Decorators
-
-TypeScript supports decorators on:
-
-### 1. Methods (What we covered)
-```typescript
-class UserController {
-  @LogMethod
-  getAll() { }
-}
-```
-
-### 2. Properties
-```typescript
-class User {
-  @Validate
-  username: string;
-}
-```
-
-### 3. Parameters
-```typescript
-class UserController {
-  getUser(@ValidateId id: number) { }
-}
-```
-
-### 4. Class Decorators
-```typescript
-@Injectable
-class UserController { }
-```
-
----
-
-## Real-World Use Cases for Decorators
-
-### Use Case 1: Logging (What we built)
-```typescript
-@LogMethod
-getUser() { }
-// Automatically logs: method name, args, return value, execution time
-```
-
-### Use Case 2: Authentication
-```typescript
-@RequireAuth
-deleteUser() { }
-// Automatically checks if user is authenticated before running
-```
-
-### Use Case 3: Validation
-```typescript
-@ValidateInput
-createUser(data: unknown) { }
-// Automatically validates input before method runs
-```
-
-### Use Case 4: Caching
-```typescript
-@Cacheable({ ttl: 60000 })
-getUser(id: number) { }
-// Automatically caches result for 60 seconds
-```
-
----
-
-## Decorator Metadata with Reflect-Metadata
-
-The `reflect-metadata` library lets decorators store and retrieve type information:
+And the decorator itself, `src/decorators/logger.decorator.ts`:
 
 ```typescript
 import 'reflect-metadata';
 
-function StoreMetadata(metadata: string) {
-  return function(target: object, propertyKey: string) {
-    Reflect.defineMetadata('custom', metadata, target, propertyKey);
-  };
-}
-
-class UserController {
-  @StoreMetadata('This method gets all users')
-  getAll() { }
-}
-
-// Later, retrieve the metadata:
-const meta = Reflect.getMetadata('custom', UserController.prototype, 'getAll');
-console.log(meta);  // "This method gets all users"
-```
-
-<sub>code by anubhav trainings</sub>
-
----
-
-## Common Decorator Pattern: Before/After
-
-Here's a common pattern—wrapping method execution with before/after logic:
-
-```typescript
-function BeforeAfter(
-  target: object,
+export function LogMethod(
+  _target: object,
   propertyKey: string,
   descriptor: PropertyDescriptor
 ): PropertyDescriptor {
   const originalMethod = descriptor.value;
 
   descriptor.value = function (...args: unknown[]) {
-    // BEFORE: Do something before the method runs
-    console.log(`🔵 Before ${propertyKey}`);
+    console.log(`[LOG] Calling ${propertyKey} with args:`, args);
 
-    // EXECUTE: Call the original method
-    const result = originalMethod.apply(this, args);
+    const start = Date.now();
+    const result: unknown = originalMethod.apply(this, args);
+    const duration = Date.now() - start;
 
-    // AFTER: Do something after the method runs
-    console.log(`🟢 After ${propertyKey}`);
+    console.log(`[LOG] ${propertyKey} returned:`, result);
+    console.log(`[LOG] ${propertyKey} took ${duration}ms`);
 
     return result;
   };
 
   return descriptor;
 }
-
-class UserController {
-  @BeforeAfter
-  deleteUser(id: number): void {
-    console.log(`Deleting user ${id}`);
-  }
-}
-
-// Output when calling deleteUser(1):
-// 🔵 Before deleteUser
-// Deleting user 1
-// 🟢 After deleteUser
 ```
 
 <sub>code by anubhav trainings</sub>
-
----
-
-## Testing Your Decorator
-
-Let's test the `@LogMethod` decorator:
-
-```typescript
-import 'reflect-metadata';
-import { LogMethod } from './decorators/logger.decorator';
-
-class Calculator {
-  @LogMethod
-  add(a: number, b: number): number {
-    return a + b;
-  }
-
-  @LogMethod
-  multiply(a: number, b: number): number {
-    return a * b;
-  }
-}
-
-const calc = new Calculator();
-
-console.log('\n--- Testing add ---');
-const sum = calc.add(5, 3);
-console.log(`Result: ${sum}\n`);
-
-console.log('--- Testing multiply ---');
-const product = calc.multiply(4, 7);
-console.log(`Result: ${product}`);
-```
-
-<sub>code by anubhav trainings</sub>
-
-**Expected output:**
-```
---- Testing add ---
-[LOG] Calling add with args: [ 5, 3 ]
-[LOG] add returned: 8
-[LOG] add took 1ms
-Result: 8
-
---- Testing multiply ---
-[LOG] Calling multiply with args: [ 4, 7 ]
-[LOG] multiply returned: 28
-[LOG] multiply took 0ms
-Result: 28
-```
-
----
-
-<div style="background-color: #90EE90; padding: 15px; border-radius: 8px; margin-top: 20px;">
-
-**🎯 Key Concepts:**
-
-**Decorator** — A function that wraps a class, method, property, or parameter to add behavior
-
-**@LogMethod** — Our custom decorator that logs method calls, arguments, return values, and execution time
-
-**PropertyDescriptor** — Object containing the method and its configuration properties
-
-**Reflect-Metadata** — Library that enables storing and retrieving type information at runtime
-
-**this binding** — Must use `.bind(this)` when passing class methods as function arguments
-
-**Metadata** — Type information that decorators can store and retrieve at runtime
-
-</div>
-
----
-
-<div style="background-color: #FFE4E1; padding: 15px; border-radius: 8px; margin-top: 20px;">
-
-**📝 Key Takeaways:**
-
-1. **Enable decorators** in tsconfig.json with `"experimentalDecorators": true`
-2. **Import reflect-metadata** at the very top of your main file
-3. **Decorators modify behavior** without changing the original code
-4. **Method decorators** receive `(target, propertyKey, descriptor)` parameters
-5. **Save the original method** with `const original = descriptor.value`
-6. **Replace with a wrapper** that adds logging, validation, caching, etc.
-7. **Binding matters** — Use `.bind(this)` when passing methods as handlers
-8. **Class methods only** — Decorators work on class methods, not arrow functions or standalone functions
-
-</div>
-
----
-
-## Running with Decorators
-
-To run your server with decorators:
-
-```bash
-# Build TypeScript
-npm run build
-
-# Start the server
-npm start
-```
-
-<sub>code by anubhav trainings</sub>
-
-When you make a request, you'll see decorator logs:
-
-```
-[LOG] Calling getAll with args: [Request, Response]
-[LOG] getAll returned: {data: [...], success: true}
-[LOG] getAll took 2ms
-```
 
 ---
 
