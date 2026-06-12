@@ -8,9 +8,10 @@
 
 ## 🧾 Cheat Sheet
 
-| Piece | File | Purpose |
+| Piece | File / Command | Purpose |
 |-------|------|---------|
-| Route rules | `xs-app.json` | tells the App Router how to forward each URL |
+| Scaffold router | `cds add approuter` **or** `cd app/router && npm i @sap/approuter` | create the App Router module |
+| Route rules | `app/router/xs-app.json` | tells the App Router how to forward each URL |
 | Module descriptor | `mta.yaml` | lists app + approuter + html5-repo for CF deploy |
 | Build the app | `ui5 build --clean-dest` | produces the static `dist/` to upload |
 | Type gate | `npm run ts-typecheck` (`tsc --noEmit`) | must print **zero** errors before deploy |
@@ -35,9 +36,100 @@
 
 ---
 
-## 4.1 — Add `xs-app.json`
+## 4.1 — Scaffold the App Router module
 
-Create a new file **`webapp/xs-app.json`** (a freestyle app keeps it next to the UI sources):
+The App Router is its **own little Node.js app** — a separate folder with its own `package.json` that depends on `@sap/approuter`. We create it next to the UI app, at **`app/router/`**. There are two ways to do it; pick one.
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Concept — why a separate folder?</strong> Your UI5 app is <em>static files</em> (HTML/JS/CSS). The App Router is a <em>running program</em> that serves those files and proxies the OData calls. Two different jobs ⇒ two different modules. On BTP they deploy as separate things, so we keep them in separate folders from the start.</em>
+</div>
+
+### Option A — `cds add approuter` (recommended in a CAP project)
+
+Because `manageorder` lives inside the CAP project `capm-s4-mashup`, the CAP CLI can scaffold the router **and** wire it into `mta.yaml`/`package.json` for you:
+
+```bash
+# from the CAP project root: capm-s4-mashup/
+cds add approuter
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+This generates the **`app/router/`** folder containing a ready `package.json` (with the `@sap/approuter` dependency and a `start` script) and a starter `xs-app.json`, and registers an approuter module in your MTA descriptor. You then just edit the generated `xs-app.json` (§4.2).
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note:</strong> <code>cds add approuter</code> needs the <code>@sap/cds-dk</code> tooling (the global <code>cds</code> command). If you also run <code>cds add html5-repo</code> and <code>cds add xsuaa</code>, CAP fills in most of the <code>mta.yaml</code> from §4.3 automatically — a big time-saver over writing it by hand.
+</div>
+
+### Option B — Create it manually with `npm`
+
+If you are not in a CAP project (or want to see every moving part), build the folder yourself:
+
+```bash
+# from the project root
+cd app
+mkdir router
+cd router
+npm init -y                 # creates a default package.json
+npm install @sap/approuter  # adds the App Router runtime
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+Then open the generated `app/router/package.json` and add a `start` script so the folder can run on its own:
+
+```json
+{
+  "name": "manageorder-approuter",
+  "version": "1.0.0",
+  "description": "App Router for the manageorder Fiori app",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@sap/approuter": "^20.4.0"
+  },
+  "scripts": {
+    "start": "node node_modules/@sap/approuter/approuter.js"
+  }
+}
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+<div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
+<em>💡 <strong>Concept — the <code>start</code> script:</strong> <code>@sap/approuter</code> ships a runnable file <code>approuter.js</code>. The <code>start</code> script just launches it with Node. On BTP, Cloud Foundry runs this same <code>npm start</code> to boot your router. Locally you can run it too (with a <code>default-env.json</code> holding test destinations), but that is optional for this guide.</em>
+</div>
+
+### Where everything sits now
+
+After either option, the project tree looks like this:
+
+```text
+capm-s4-mashup/
+├─ app/
+│  ├─ manageorder/        ← the UI5 TypeScript app (Steps 1–3)
+│  │  ├─ webapp/
+│  │  └─ ui5.yaml
+│  └─ router/             ← NEW: the App Router module
+│     ├─ package.json     ← @sap/approuter + start script
+│     └─ xs-app.json      ← the route rules (next section)
+├─ srv/                   ← CAP service (the OData backend)
+├─ db/
+└─ mta.yaml               ← ties it all together for deploy
+```
+
+<sub><b>code by anubhav trainings</b></sub>
+
+<div style="background-color:#fce4ec; border-left: 5px solid #e91e63; padding: 10px 15px; border-radius: 4px;">
+📌 <strong>Note:</strong> The folder name <code>app/router</code> is the CAP convention used by <code>cds add approuter</code>. Whatever you name it, it must match the <code>path:</code> of the approuter module in <code>mta.yaml</code> (we use <code>path: app/router</code> in §4.3).
+</div>
+
+---
+
+## 4.2 — Add `xs-app.json` (the router's rule sheet)
+
+Now fill in the router's instruction file **`app/router/xs-app.json`** (Option A created a starter; replace its contents with this):
 
 ```json
 {
@@ -80,7 +172,7 @@ Reading each route like a school rule:
 
 ---
 
-## 4.2 — Add the app to `mta.yaml`
+## 4.3 — Add the app to `mta.yaml`
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
 <em>💡 <strong>Concept — MTA (Multi-Target Application):</strong> a single recipe that lists every moving part of your solution — the UI, the router, the service bindings — so the whole thing deploys together with one command. <code>mta.yaml</code> is that recipe.</em>
@@ -134,7 +226,7 @@ modules:
   # 3) the App Router that serves the app and proxies OData
   - name: manageorder-approuter
     type: approuter.nodejs
-    path: approuter
+    path: app/router
     requires:
       - name: manageorder-html5-repo-runtime
       - name: manageorder-uaa
@@ -177,7 +269,7 @@ The three modules, in one sentence each:
 
 ---
 
-## 4.3 — Pass the type gate
+## 4.4 — Pass the type gate
 
 <div style="background-color:#e8f5e9; border-left: 5px solid #4caf50; padding: 10px 15px; border-radius: 4px;">
 <em>💡 <strong>Concept — the "type gate":</strong> a single command, <code>tsc --noEmit</code>, that checks every <code>.ts</code> file for type errors <strong>without</strong> producing any output files (<code>--noEmit</code> = "check only, write nothing"). If it prints nothing, your types are sound. Teams run this in CI so broken types can never be deployed.</em>
@@ -244,7 +336,7 @@ Found 1 error in 1 file.
 
 ---
 
-## 4.4 — Build and deploy
+## 4.5 — Build and deploy
 
 ```bash
 # 1) prove types are clean
@@ -283,7 +375,29 @@ cf deploy mta_archives/com.ats.manageorder_0.0.1.mtar
 ## ✅ Final new files after Step 4
 
 <details open>
-<summary><b>webapp/xs-app.json</b></summary>
+<summary><b>app/router/package.json</b></summary>
+
+```json
+{
+  "name": "manageorder-approuter",
+  "version": "1.0.0",
+  "description": "App Router for the manageorder Fiori app",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@sap/approuter": "^20.4.0"
+  },
+  "scripts": {
+    "start": "node node_modules/@sap/approuter/approuter.js"
+  }
+}
+```
+
+</details>
+
+<details open>
+<summary><b>app/router/xs-app.json</b></summary>
 
 ```json
 {
@@ -360,7 +474,7 @@ modules:
 
   - name: manageorder-approuter
     type: approuter.nodejs
-    path: approuter
+    path: app/router
     requires:
       - name: manageorder-html5-repo-runtime
       - name: manageorder-uaa
