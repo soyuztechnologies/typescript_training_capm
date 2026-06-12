@@ -1,0 +1,2 @@
+sap.ui.define(["./BaseController"],function(e){"use strict";function n(e){return e&&e.__esModule&&typeof e.default!=="undefined"?e.default:e}const t=n(e);const o=t.extend("com.ats.manageorder.controller.App",{onInit:function e(){}});return o});
+//# sourceMappingURL=App.controller.js.map

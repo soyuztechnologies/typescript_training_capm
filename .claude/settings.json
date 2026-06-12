@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(cd \"d:\\\\Documents\\\\Corporate Trainings\\\\June 2026\\\\typescript_training_capm\" && mkdir -p \"Day 4/developer_exercises/images\" && echo \"created\")"
+    ],
+    "additionalDirectories": [
+      "d:\\Documents\\Corporate Trainings\\June 2026\\typescript_training_capm\\Day 4\\developer_exercises"
     ]
   }
 }

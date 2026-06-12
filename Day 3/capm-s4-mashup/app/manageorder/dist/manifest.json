@@ -1,0 +1,171 @@
+{
+	"_version": "1.59.0",
+	"sap.app": {
+		"id": "com.ats.manageorder",
+		"type": "application",
+		"i18n": {
+			"bundleUrl": "i18n/i18n.properties",
+			"supportedLocales": [
+				""
+			]
+		},
+		"applicationVersion": {
+			"version": "0.0.1"
+		},
+		"title": "{{appTitle}}",
+		"description": "{{appDescription}}",
+		"resources": "resources.json",
+		"sourceTemplate": {
+			"id": "@sap/generator-fiori:basic",
+			"version": "1.13.6",
+			"toolsId": "1f3982af-5bb8-45a0-9811-81ea3a69f26b"
+		},
+		"dataSources": {
+			"mainService": {
+				"uri": "/odata/v4/catalog/",
+				"type": "OData",
+				"settings": {
+					"annotations": [],
+					"odataVersion": "4.0"
+				}
+			}
+		}
+	},
+	"sap.ui": {
+		"technology": "UI5",
+		"icons": {
+			"icon": "",
+			"favIcon": "",
+			"phone": "",
+			"phone@2": "",
+			"tablet": "",
+			"tablet@2": ""
+		},
+		"deviceTypes": {
+			"desktop": true,
+			"tablet": true,
+			"phone": true
+		}
+	},
+	"sap.ui5": {
+		"dependencies": {
+			"minUI5Version": "1.149.0",
+			"libs": {
+				"sap.m": {},
+				"sap.ui.core": {},
+				"sap.f": {},
+				"sap.suite.ui.generic.template": {},
+				"sap.ui.comp": {},
+				"sap.ui.generic.app": {},
+				"sap.ui.table": {},
+				"sap.ushell": {}
+			}
+		},
+		"contentDensities": {
+			"compact": true,
+			"cozy": true
+		},
+		"models": {
+			"i18n": {
+				"type": "sap.ui.model.resource.ResourceModel",
+				"settings": {
+					"bundleName": "com.ats.manageorder.i18n.i18n",
+					"supportedLocales": [
+						""
+					]
+				}
+			},
+			"": {
+				"dataSource": "mainService",
+				"preload": true,
+				"settings": {
+					"operationMode": "Server",
+					"autoExpandSelect": true,
+					"earlyRequests": true
+				}
+			}
+		},
+		"resources": {
+			"css": [
+				{
+					"uri": "css/style.css"
+				}
+			]
+		},
+		"routing": {
+			"config": {
+				"routerClass": "sap.m.routing.Router",
+				"viewPath": "com.ats.manageorder.view",
+				"viewType": "XML",
+				"controlId": "appCon"
+			},
+			"routes": [
+				{
+					"name": "leftSide",
+					"pattern": "",
+					"target": [
+						"donald",
+						"trump"
+					]
+				},
+				{
+					"name": "spiderman",
+					"pattern": "order/{orderId}",
+					"target": [
+						"donald",
+						"modi"
+					]
+				},
+				{
+					"name": "addOrder",
+					"pattern": "add",
+					"target": [
+						"donald",
+						"ironman"
+					]
+				},
+				{
+					"name": "superman",
+					"pattern": "supplier/{supplierId}",
+					"target": [
+						"donald",
+						"putin"
+					]
+				}
+			],
+			"targets": {
+				"donald": {
+					"id": "idView1",
+					"viewName": "View1",
+					"controlAggregation": "masterPages"
+				},
+				"trump": {
+					"id": "idEmpty",
+					"viewName": "Empty",
+					"controlAggregation": "detailPages"
+				},
+				"modi": {
+					"id": "idView2",
+					"viewName": "View2",
+					"controlAggregation": "detailPages"
+				},
+				"putin": {
+					"id": "idView3",
+					"viewName": "View3",
+					"controlAggregation": "detailPages"
+				},
+				"ironman": {
+					"id": "idAdd",
+					"viewName": "Add",
+					"controlAggregation": "detailPages"
+				}
+			}
+		},
+		"rootView": {
+			"id": "idRootView",
+			"viewName": "com.ats.manageorder.view.App",
+			"type": "XML"
+		},
+		"flexBundle": false
+	}
+}

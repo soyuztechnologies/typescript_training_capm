@@ -1,0 +1,2 @@
+sap.ui.define(["sap/ui/core/mvc/Controller","../util/formatter"],function(t,r){"use strict";const o=t.extend("com.ats.manageorder.controller.BaseController",{constructor:function o(){t.prototype.constructor.apply(this,arguments);this.formatter=r}});return o});
+//# sourceMappingURL=BaseController.js.map

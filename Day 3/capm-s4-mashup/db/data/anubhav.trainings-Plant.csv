@@ -1,4 +1,4 @@
-ID;plantName;storageLocation;country;city
+ID,plantName,storageLocation,country,city
 a1000000-0000-0000-0000-000000000001;Mumbai Manufacturing Plant;SL001;IN;Mumbai
 a1000000-0000-0000-0000-000000000002;Pune Assembly Plant;SL001;IN;Pune
 a1000000-0000-0000-0000-000000000003;Berlin Production Plant;SL002;DE;Berlin

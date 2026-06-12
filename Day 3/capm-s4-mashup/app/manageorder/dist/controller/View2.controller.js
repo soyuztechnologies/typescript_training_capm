@@ -1,0 +1,2 @@
+sap.ui.define(["./BaseController"],function(e){"use strict";function t(e){return e&&e.__esModule&&typeof e.default!=="undefined"?e.default:e}const n=t(e);const o=n.extend("com.ats.manageorder.controller.View2",{onInit:function e(){this.oRouter=this.getOwnerComponent().getRouter();this.oRouter.getRoute("spiderman")?.attachMatched(this.herculis,this)},herculis:function e(t){const n=this.getView();const o=t.getParameter("arguments").orderId;n.bindElement({path:"/"+o,model:"orders"})}});return o});
+//# sourceMappingURL=View2.controller.js.map
