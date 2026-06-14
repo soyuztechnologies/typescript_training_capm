@@ -338,7 +338,9 @@ app.get('/api/users/:id', (req: Request, res: Response) => {
   // 'user' is typed User | undefined — TS FORCES the
   // not-found check below before we can use it.
   if (!user) return res.status(404).json({ message: 'User not found' });
-  res.json(user);
+  // Note the 'return': because the line above returns a value,
+  // noImplicitReturns requires EVERY path to return one too.
+  return res.json(user);
 });
 ```
 
@@ -363,6 +365,9 @@ app.get('/api/users/:id', (req, res) => {
 - **`req.params.id`** — Always a string (HTTP params are strings).
 - **`parseInt(req.params.id as string)`** — Converts `"1"` to `1`. The `as string` is a *type assertion* (more in Step 3).
 - **`users.find(...)`** — Returns the matching `User`, or `undefined`. TypeScript types this as `User | undefined`, which is why the `if (!user)` check is required.
+- **`return res.json(user)`** — Note the `return`. Our `tsconfig.json` enables **`noImplicitReturns`**, which requires a function to be *consistent*: since the `if (!user)` branch returns a value, **every** path must return one. Returning `res.json(...)` is harmless — Express ignores a handler's return value — so we're just satisfying the type checker.
+
+> 💡 **TS advantage:** `noImplicitReturns` catches functions that accidentally fall through without returning on some branch — a common source of `undefined` bugs. The fix is one keyword: add `return`.
 
 **Example requests:**
 ```
@@ -401,7 +406,9 @@ app.post('/api/users', (req: Request, res: Response) => {
   };
 
   users.push(newUser); // TS guarantees only Users enter the array
-  res.status(201).json(newUser);
+  // 'return' here too: the early 'return' in the validation
+  // block above means every path must return (noImplicitReturns).
+  return res.status(201).json(newUser);
 });
 ```
 
@@ -670,7 +677,7 @@ app.get('/api/users', (req: Request, res: Response) => {
 app.get('/api/users/:id', (req: Request, res: Response) => {
   const user = users.find(u => u.id === parseInt(req.params.id as string));
   if (!user) return res.status(404).json({ message: 'User not found' });
-  res.json(user);
+  return res.json(user); // 'return' on every path (noImplicitReturns)
 });
 
 app.post('/api/users', (req: Request, res: Response) => {
@@ -687,7 +694,7 @@ app.post('/api/users', (req: Request, res: Response) => {
   };
  
   users.push(newUser);
-  res.status(201).json(newUser);
+  return res.status(201).json(newUser); // 'return' on every path (noImplicitReturns)
 });
 
 // Error handling middleware
