@@ -58,6 +58,11 @@ import express from 'express';
 // Advantage: we get Request/Response checking for free.
 import type { Request, Response, NextFunction } from 'express';
 import { json } from 'body-parser';
+// Our OWN reusable types live in src/types/user.d.ts.
+// We import the 'User' shape from there instead of
+// re-declaring it in every file. Advantage: one source
+// of truth — change the User shape once, every file updates.
+import type { User } from './types/user';
 ```
 
 </td>
@@ -80,12 +85,38 @@ const { json } = require('body-parser');
 - **`import express from 'express'`** — Imports the Express library so we can use `express()` to create our app.
 - **`import type { Request, Response, NextFunction }`** — The `type` keyword tells TypeScript: "Import these only for types, don't include them in compiled JavaScript." Smaller output, full type safety.
 - **`import { json } from 'body-parser'`** — Middleware that parses JSON request bodies.
+- **`import type { User } from './types/user'`** — Pulls our **own** `User` interface from the shared declaration file [`src/types/user.d.ts`](../src/types/user.d.ts). Because every file imports from this one place, the `User` shape has a *single source of truth* — no copy-pasting interfaces around the codebase.
 
 > 💡 **TS advantage:** `import type` gives you compile-time checking with **no runtime cost** — the line vanishes in the compiled `.js`.
 
 ---
 
-### Section 2: Defining the User Interface
+### Section 2: The Reusable User Interface
+
+Instead of re-declaring the `User` interface in every file, we define it **once** in a shared declaration file, `src/types/user.d.ts`, and `import type { User }` wherever we need it (we already did this in Section 1).
+
+**`src/types/user.d.ts`** — the single source of truth for our types:
+
+```typescript
+// src/types/user.d.ts — all User-related types live here.
+// 'export' makes each interface importable from other files.
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+}
+
+export interface CreateUserBody {
+  username: string;
+  email: string;
+}
+
+export interface UserParams {
+  id: string; // route params are always strings in HTTP
+}
+```
+
+Now compare *using* that shared type in our server file against the old JavaScript:
 
 <table>
 <tr>
@@ -96,26 +127,26 @@ const { json } = require('body-parser');
 <td>
 
 ```typescript
-// An interface is a contract. Every User MUST have
-// exactly these properties with these types.
+// No inline interface here! The 'User' contract is
+// imported from src/types/user.d.ts (see Section 1).
 // Advantage: typos and missing fields become COMPILE
-// errors instead of runtime crashes.
-interface User {
-  id: number;
-  username: string;
-  email: string;
-}
+// errors, AND the shape is reused across every file.
+import type { User } from './types/user';
+
+// ...later we just refer to 'User' as a type:
+// const users: User[] = [...]
 ```
 
 </td>
 <td style="background-color:#f0f0f0">
 
 ```javascript
-// JavaScript has NO way to declare the shape of a user.
-// A "user" is just an object — nothing stops you from
-// misspelling 'usrname' or forgetting 'email' entirely.
-// You only discover the mistake when the app crashes
-// at runtime in front of a real customer.
+// JavaScript has NO way to declare the shape of a user,
+// and no way to share that shape between files. A "user"
+// is just an object — nothing stops you from misspelling
+// 'usrname' or forgetting 'email' entirely. You only
+// discover the mistake when the app crashes at runtime
+// in front of a real customer.
 //
 // (no code here — there is simply nothing to write)
 ```
@@ -124,7 +155,7 @@ interface User {
 </tr>
 </table>
 
-> **Key Concept:** An *interface* is a contract that defines the shape of an object: "Any object of type `User` must have exactly these properties with these types."
+> **Key Concept:** An *interface* is a contract that defines the shape of an object: "Any object of type `User` must have exactly these properties with these types." Putting it in a `.d.ts` file and `export`-ing it makes that contract **reusable** — import it anywhere with `import type { User } from './types/user'`.
 
 **Why use interfaces?**
 1. **Type Safety** — Prevents assigning wrong types.
@@ -615,12 +646,8 @@ Now that you've seen each section built up and compared against plain JavaScript
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { json } from 'body-parser';
-
-interface User {
-  id: number;
-  username: string;
-  email: string;
-}
+// Reusable User type, defined once in src/types/user.d.ts
+import type { User } from './types/user';
 
 // Initialize Express app
 const app = express();

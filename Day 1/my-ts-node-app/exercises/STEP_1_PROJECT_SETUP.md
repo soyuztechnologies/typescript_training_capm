@@ -268,6 +268,13 @@ Here's a comprehensive, production-ready configuration. Each option is annotated
 
 > **Key Concept:** Type safety means TypeScript catches errors at compile-time (before running your code) by checking that data types match expectations. Instead of discovering errors at runtime when they crash your app, you find them immediately while coding.
 
+First, create a type definitions folder and a `user.d.ts` file so you can follow along:
+
+```bash
+mkdir src\types
+# then create the file: src/types/user.d.ts
+```
+
 <table>
 <tr>
 <th width="50%">🟦 TypeScript — with type safety</th>
@@ -402,8 +409,7 @@ npm install -D typescript @types/node @types/express
 npx tsc --init   # then replace the generated file with the tsconfig.json below
 
 mkdir src
-mkdir src/types
-mkdir src/decorators
+mkdir src\types
 ```
 
 ### Complete `tsconfig.json`
@@ -444,10 +450,7 @@ mkdir src/decorators
 typescript-express-api/
 ├── src/
 │   ├── types/
-│   │   ├── user.d.ts
-│   │   └── index.d.ts
-│   ├── decorators/
-│   │   └── logger.decorator.ts
+│   │   └── user.d.ts
 │   └── 1_server.ts
 ├── dist/
 │   └── (compiled JavaScript files)
