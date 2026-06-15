@@ -140,6 +140,8 @@ calc.add = (a, b) => {
 
 ## Creating the LogMethod Decorator
 
+> 📄 **Create a new file `src/decorators/logger.decorator.ts`** and add the code below. This is the single, reusable decorator we'll apply to our controller methods.
+
 <table>
 <tr>
 <th width="50%">🟦 TypeScript — reusable decorator</th>
@@ -223,6 +225,8 @@ function withLogging(fn, name) {
 ---
 
 ## Using the Decorator: 3_server.ts
+
+> 📄 **Create a new file `src/3_server.ts`** and add the code below. It imports `LogMethod` from `src/decorators/logger.decorator.ts` (created above) and applies it to the controller methods.
 
 Decorators only work on **class methods**, so we move our route handlers into a class.
 
