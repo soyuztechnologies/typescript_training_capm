@@ -226,9 +226,86 @@ function withLogging(fn, name) {
 
 ## Using the Decorator: 3_server.ts
 
-> 📄 **Create a new file `src/3_server.ts`** and add the code below. It imports `LogMethod` from `src/decorators/logger.decorator.ts` (created above) and applies it to the controller methods.
+> 📄 We'll build **`src/3_server.ts`** in three small steps. Do them in order — each one sets up what the next needs.
 
-Decorators only work on **class methods**, so we move our route handlers into a class.
+### Step 1 — Define the shared types (`src/types/user.d.ts`)
+
+Before writing the server, make sure our reusable type contracts exist. These describe the shape of a `User`, the request bodies, and a generic API response — so every handler can rely on them instead of re-checking shapes by hand.
+
+> 📄 **Create (or confirm) `src/types/user.d.ts`:**
+
+```typescript
+// user.d.ts — all User related types live here
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+}
+
+export interface CreateUserBody {
+  username: string;
+  email: string;
+}
+
+export interface UserParams {
+  id: string; // route params are always strings in HTTP
+}
+
+export interface ApiResponse<T> {
+  data?: T;
+  message?: string;
+  success: boolean;
+}
+```
+
+> 📄 **Create `src/types/index.d.ts`** as a *barrel file* so the rest of the app can import every type from one place:
+
+```typescript
+// index.d.ts — re-exports everything so consumers import from one place
+export type { User, CreateUserBody, UserParams, ApiResponse } from './user';
+```
+
+> 💡 **Concept:** A *barrel file* collects related exports behind a single module. Now any file can write `import type { User } from './types'` instead of reaching into individual files.
+
+---
+
+### Step 2 — Create `src/3_server.ts` and wire up the imports
+
+Now create the server file. Notice we import **two kinds of things we already built**: the type definitions (`.d.ts`) from Step 1, and the `LogMethod` decorator (`logger.decorator.ts`) from the previous section.
+
+> 📄 **Create `src/3_server.ts`** and start with the imports and app scaffold:
+
+```typescript
+import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
+import { json } from 'body-parser';
+import 'reflect-metadata';                  // required once, for decorator metadata
+
+// The shared types we defined in Step 1 (the .d.ts files)
+import type { User, CreateUserBody, UserParams, ApiResponse } from './types';
+// The decorator we built earlier in logger.decorator.ts
+import { LogMethod } from './decorators/logger.decorator';
+
+const app = express();
+const PORT: number = parseInt(process.env['PORT'] ?? '3000', 10);
+app.use(json());
+
+// In-memory data, typed with our shared User interface
+const users: User[] = [
+  { id: 1, username: 'user1', email: 'user1@example.com' },
+  { id: 2, username: 'user2', email: 'user2@example.com' }
+];
+```
+
+> 💡 **Concept:** `import 'reflect-metadata'` runs once for the whole app and must appear before any decorated class. The two lines below it pull in the *type contracts* and the *behavior* (`@LogMethod`) we built separately — keeping each concern in its own file.
+
+---
+
+### Step 3 — Move the handlers into a `UserController` class
+
+Here's the key idea of this whole step: **decorators only work on class methods, not on standalone functions.** In earlier steps our handlers were plain functions like `app.get('/api/users', (req, res) => { ... })` — there is no method there for `@LogMethod` to attach to.
+
+So we wrap the handlers inside a `UserController` class. Once each handler is a *class method*, we can decorate it with `@LogMethod` and get logging for free.
 
 <table>
 <tr>
@@ -270,7 +347,7 @@ app.get('/api/users', getAll);
 </tr>
 </table>
 
-Here's the full controller version (`3_server.ts` is given complete at the end of this document):
+Now add the **full `UserController`** with all three handlers, each decorated with `@LogMethod` (the complete `3_server.ts` is assembled at the end of this document):
 
 ```typescript
 class UserController {
@@ -362,45 +439,6 @@ bound();                   // ✅ 'this' is ctrl
 ```typescript
 const ctrl = new UserController();
 app.get('/api/users', () => ctrl.getAll());  // ✅ Works
-```
-
----
-
-## Type Definitions for Our Types
-
-Create `src/types/user.d.ts`:
-
-```typescript
-// user.d.ts — all User related types live here
-export interface User {
-  id: number;
-  username: string;
-  email: string;
-}
-
-export interface CreateUserBody {
-  username: string;
-  email: string;
-}
-
-export interface UserParams {
-  id: string; // route params are always strings in HTTP
-}
-
-export interface ApiResponse<T> {
-  data?: T;
-  message?: string;
-  success: boolean;
-}
-```
-
-> ⬜ **In JS before:** none of this existed. There was no way to declare these shapes, so every handler re-validated by hand and the "contract" lived only in your head.
-
-And `src/types/index.d.ts` as a barrel file:
-
-```typescript
-// index.d.ts — re-exports everything so consumers import from one place
-export type { User, CreateUserBody, UserParams, ApiResponse } from './user';
 ```
 
 ---
