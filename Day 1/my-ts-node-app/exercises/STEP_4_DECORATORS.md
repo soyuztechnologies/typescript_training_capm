@@ -443,6 +443,36 @@ app.get('/api/users', () => ctrl.getAll());  // ✅ Works
 
 ---
 
+### Step 4 — Instantiate the controller, register the routes, and start the server
+
+The `UserController` class only *defines* the handlers — nothing calls them yet. In this final step we create one instance, wire each method to a route (binding `this` as we just learned), add the error handler, and start listening.
+
+> 📄 **Add this to the bottom of `src/3_server.ts`:**
+
+```typescript
+const ctrl = new UserController();
+
+// Register each decorated method as a route handler.
+// .bind(ctrl) preserves 'this' so the method still works when Express calls it.
+app.get('/api/users',     ctrl.getAll.bind(ctrl));   // .bind() preserves 'this'
+app.get('/api/users/:id', ctrl.getById.bind(ctrl));
+app.post('/api/users',    ctrl.create.bind(ctrl));
+
+// Error-handling middleware (4 args) — registered after the routes.
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction): void => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!', success: false });
+});
+
+app.listen(PORT, (): void => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+```
+
+> 💡 **Concept:** Defining a class method doesn't run it — Express runs it later, when a request arrives. Because the method is detached from the instance at that point, `.bind(ctrl)` is what keeps `this` pointing at the controller. With the routes registered and `app.listen` called, every request now flows through `@LogMethod` automatically.
+
+---
+
 ## Different Types of Decorators
 
 ```typescript
