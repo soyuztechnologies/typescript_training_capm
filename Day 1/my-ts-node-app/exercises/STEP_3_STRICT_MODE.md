@@ -4,7 +4,7 @@
 
 Welcome to Step 3! In the previous step we built a working server. Now we'll turn on *Strict Mode* — TypeScript's paranoid safety inspector — and **apply a handful of focused changes** to the code Step 2 left us with.
 
-This step is an **exercise**: start from your existing `1_server.ts`, then make each change below. Every code block is a **diff** — lines you **add or change** are shown in green (`+`), lines you **remove** are shown in red (`-`), and unchanged lines are context. Just follow the green/red highlights.
+This step is an **exercise**: start from your existing `1_server.ts`, then make each change below. Every code block is ready to **copy directly** — the new code is plain TypeScript, and any line being **replaced** is shown **commented out** (prefixed with `// BEFORE:`) right above its replacement, so you can see exactly what changed without breaking compilation if you paste the whole block.
 
 ---
 
@@ -75,19 +75,19 @@ app.listen(PORT, () => {
 
 Turn on the compiler checks. This is what makes every change below *required* rather than optional.
 
-```diff
-  {
-    "compilerOptions": {
-+     "strict": true,
-+     "strictNullChecks": true,
-+     "noImplicitAny": true,
-+     "noUnusedLocals": true,
-+     "noUnusedParameters": true,
-+     "noImplicitReturns": true,
-+     "noUncheckedIndexedAccess": true,
-+     "exactOptionalPropertyTypes": true
-    }
+```jsonc
+{
+  "compilerOptions": {
+    "strict": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
   }
+}
 ```
 
 > 💡 TS's `"strict"` and JS's `'use strict'` are **completely different** — one is compile-time type safety, the other is a small runtime tweak.
@@ -98,10 +98,10 @@ Turn on the compiler checks. This is what makes every change below *required* ra
 
 `process.env.PORT` is typed `string | undefined`. `??` supplies a fallback string; `parseInt` guarantees a real `number`.
 
-```diff
-  const app = express();
-- const PORT = process.env.PORT || 3000;
-+ const PORT: number = parseInt(process.env.PORT ?? '3000', 10);
+```typescript
+const app = express();
+// BEFORE: const PORT = process.env.PORT || 3000;
+const PORT: number = parseInt(process.env.PORT ?? '3000', 10);
 ```
 
 ---
@@ -110,18 +110,16 @@ Turn on the compiler checks. This is what makes every change below *required* ra
 
 `noImplicitAny` forces the parameter types; the explicit return types document exactly what each helper gives back. Add these just above `const app = express();`:
 
-```diff
-+ // Return type 'User | undefined' forces every caller to handle "not found".
-+ function findUserById(id: number): User | undefined {
-+   return users.find((u: User) => u.id === id);
-+ }
-+
-+ // Explicit param + return types satisfy noImplicitAny.
-+ function createUser(username: string, email: string): User {
-+   return { id: users.length + 1, username, email };
-+ }
-+
-  const app = express();
+```typescript
+// Return type 'User | undefined' forces every caller to handle "not found".
+function findUserById(id: number): User | undefined {
+  return users.find((u: User) => u.id === id);
+}
+
+// Explicit param + return types satisfy noImplicitAny.
+function createUser(username: string, email: string): User {
+  return { id: users.length + 1, username, email };
+}
 ```
 
 ---
@@ -130,11 +128,11 @@ Turn on the compiler checks. This is what makes every change below *required* ra
 
 The handler returns nothing, so say so. Making it explicit is what `noImplicitReturns` rewards.
 
-```diff
-- app.get('/api/users', (_req: Request, res: Response) => {
-+ app.get('/api/users', (_req: Request, res: Response): void => {
-    res.json(users);
-  });
+```typescript
+// BEFORE: app.get('/api/users', (_req: Request, res: Response) => {
+app.get('/api/users', (_req: Request, res: Response): void => {
+  res.json(users);
+});
 ```
 
 ---
@@ -143,33 +141,35 @@ The handler returns nothing, so say so. Making it explicit is what `noImplicitRe
 
 This is the biggest change. `noUncheckedIndexedAccess` makes `req.params['id']` a `string | undefined`, so we supply a fallback; `parseInt` can return `NaN`, so we guard it; and each early exit becomes a bare `return` (the handler is now `: void`).
 
-```diff
-- app.get('/api/users/:id', (req: Request, res: Response) => {
--   const user = users.find(u => u.id === parseInt(req.params.id as string));
--   if (!user) return res.status(404).json({ message: 'User not found' });
--   return res.json(user);
-- });
-+ app.get('/api/users/:id', (req: Request, res: Response): void => {
-+   // noUncheckedIndexedAccess: req.params['id'] is string | undefined,
-+   // so '??' supplies a fallback before parseInt.
-+   const rawId: string = req.params['id'] ?? '';
-+   const parsedId: number = parseInt(rawId, 10);
-+
-+   // parseInt can return NaN — strict mode nudges you to handle it.
-+   if (isNaN(parsedId)) {
-+     res.status(400).json({ message: 'Invalid ID format' });
-+     return;
-+   }
-+
-+   // 'User | undefined' — TS will NOT let you use 'user' until checked.
-+   const user: User | undefined = findUserById(parsedId);
-+   if (!user) {
-+     res.status(404).json({ message: 'User not found' });
-+     return;
-+   }
-+
-+   res.json(user); // here TS KNOWS user is a User, never undefined
-+ });
+```typescript
+// BEFORE (remove the whole old handler):
+// app.get('/api/users/:id', (req: Request, res: Response) => {
+//   const user = users.find(u => u.id === parseInt(req.params.id as string));
+//   if (!user) return res.status(404).json({ message: 'User not found' });
+//   return res.json(user);
+// });
+
+app.get('/api/users/:id', (req: Request, res: Response): void => {
+  // noUncheckedIndexedAccess: req.params['id'] is string | undefined,
+  // so '??' supplies a fallback before parseInt.
+  const rawId: string = req.params['id'] ?? '';
+  const parsedId: number = parseInt(rawId, 10);
+
+  // parseInt can return NaN — strict mode nudges you to handle it.
+  if (isNaN(parsedId)) {
+    res.status(400).json({ message: 'Invalid ID format' });
+    return;
+  }
+
+  // 'User | undefined' — TS will NOT let you use 'user' until checked.
+  const user: User | undefined = findUserById(parsedId);
+  if (!user) {
+    res.status(404).json({ message: 'User not found' });
+    return;
+  }
+
+  res.json(user); // here TS KNOWS user is a User, never undefined
+});
 ```
 
 ---
@@ -178,27 +178,27 @@ This is the biggest change. `noUncheckedIndexedAccess` makes `req.params['id']` 
 
 The base code had no POST route. Add one that treats `req.body` as `unknown` and proves the fields are strings with *type guards* before trusting them. Add this after the GET-by-ID route:
 
-```diff
-+ app.post('/api/users', (req: Request, res: Response): void => {
-+   // Treat external input as 'unknown', NOT 'any' — forces validation.
-+   const body = req.body as { username?: unknown; email?: unknown };
-+   const { username, email } = body;
-+
-+   // Type guards: prove these are strings before trusting them.
-+   if (typeof username !== 'string' || typeof email !== 'string') {
-+     res.status(400).json({ message: 'Username and email must be strings' });
-+     return;
-+   }
-+
-+   if (!username.trim() || !email.trim()) {
-+     res.status(400).json({ message: 'Username and email are required' });
-+     return;
-+   }
-+
-+   const newUser: User = createUser(username, email);
-+   users.push(newUser);
-+   res.status(201).json(newUser);
-+ });
+```typescript
+app.post('/api/users', (req: Request, res: Response): void => {
+  // Treat external input as 'unknown', NOT 'any' — forces validation.
+  const body = req.body as { username?: unknown; email?: unknown };
+  const { username, email } = body;
+
+  // Type guards: prove these are strings before trusting them.
+  if (typeof username !== 'string' || typeof email !== 'string') {
+    res.status(400).json({ message: 'Username and email must be strings' });
+    return;
+  }
+
+  if (!username.trim() || !email.trim()) {
+    res.status(400).json({ message: 'Username and email are required' });
+    return;
+  }
+
+  const newUser: User = createUser(username, email);
+  users.push(newUser);
+  res.status(201).json(newUser);
+});
 ```
 
 > **Key Concept — Type Guards:** `typeof username !== 'string'` is a *type guard*. After it, TypeScript *narrows* `username` from `unknown` to `string`, so `.trim()` is safe.
@@ -209,23 +209,23 @@ The base code had no POST route. Add one that treats `req.body` as `unknown` and
 
 The params already used the `_` prefix in Step 2 (satisfying `noUnusedParameters`). Just add the return type.
 
-```diff
-- app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-+ app.use((err: Error, _req: Request, res: Response, _next: NextFunction): void => {
-    console.error(err.stack);
-    res.status(500).json({ message: 'Something went wrong!' });
-  });
+```typescript
+// BEFORE: app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction): void => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!' });
+});
 ```
 
 ---
 
 ### Change 8 — `app.listen` callback: explicit `: void`
 
-```diff
-- app.listen(PORT, () => {
-+ app.listen(PORT, (): void => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-  });
+```typescript
+// BEFORE: app.listen(PORT, () => {
+app.listen(PORT, (): void => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
 ```
 
 ---
