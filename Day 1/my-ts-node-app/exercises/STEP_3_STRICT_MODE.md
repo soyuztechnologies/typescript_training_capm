@@ -150,9 +150,9 @@ This is the biggest change. `noUncheckedIndexedAccess` makes `req.params['id']` 
 // });
 
 app.get('/api/users/:id', (req: Request, res: Response): void => {
-  // noUncheckedIndexedAccess: req.params['id'] is string | undefined,
-  // so '??' supplies a fallback before parseInt.
-  const rawId: string = req.params['id'] ?? '';
+  // req.params['id'] can be string | string[] | undefined.
+  // String(... ?? '') coerces any of those to a plain string.
+  const rawId: string = String(req.params['id'] ?? '');
   const parsedId: number = parseInt(rawId, 10);
 
   // parseInt can return NaN — strict mode nudges you to handle it.
@@ -279,7 +279,7 @@ app.get('/api/users', (_req: Request, res: Response): void => {
 
 // GET user by ID
 app.get('/api/users/:id', (req: Request, res: Response): void => {
-  const rawId: string = req.params['id'] ?? '';
+  const rawId: string = String(req.params['id'] ?? '');
   const parsedId: number = parseInt(rawId, 10);
 
   if (isNaN(parsedId)) {
