@@ -319,174 +319,9 @@ app.patch('/api/users/:id', ctrl.patch.bind(ctrl));
 
 ---
 
-## Other Useful Utility Types
-
-### Required<T> — Opposite of Partial
-
-<table>
-<tr>
-<th width="50%">🟦 TypeScript</th>
-<th width="50%">⬜ JavaScript before</th>
-</tr>
-<tr>
-<td>
-
-```typescript
-interface User { id: number; username?: string; email?: string; }
-
-// Removes every '?' — all fields now mandatory.
-type FullUser = Required<User>;
-
-const user: FullUser = { id: 1, username: 'john', email: 'john@mail.com' };
-// Missing any field → compile error.
-```
-
-</td>
-<td style="background-color:#f0f0f0">
-
-```javascript
-// Enforced by hand, field by field:
-function assertFullUser(u) {
-  if (u.id == null)       throw new Error('id required');
-  if (u.username == null) throw new Error('username required');
-  if (u.email == null)    throw new Error('email required');
-}
-```
-
-</td>
-</tr>
-</table>
-
-### Readonly<T> — Make All Properties Readonly
-
-<table>
-<tr>
-<th width="50%">🟦 TypeScript</th>
-<th width="50%">⬜ JavaScript before</th>
-</tr>
-<tr>
-<td>
-
-```typescript
-type ReadonlyUser = Readonly<User>;
-
-const user: ReadonlyUser = { id: 1, username: 'john', email: 'john@mail.com' };
-user.username = 'jane'; // ❌ compile error — readonly
-```
-
-</td>
-<td style="background-color:#f0f0f0">
-
-```javascript
-// Only a RUNTIME freeze, and it fails silently (or throws
-// only in strict mode) instead of at compile time.
-const user = Object.freeze({ id: 1, username: 'john', email: 'john@mail.com' });
-user.username = 'jane'; // silently ignored in non-strict JS
-```
-
-</td>
-</tr>
-</table>
-
-### Record<K, V> — Object with Specific Keys
-
-<table>
-<tr>
-<th width="50%">🟦 TypeScript</th>
-<th width="50%">⬜ JavaScript before</th>
-</tr>
-<tr>
-<td>
-
-```typescript
-// Exactly these three keys, each a boolean.
-type Permissions = Record<'read' | 'write' | 'delete', boolean>;
-
-const perms: Permissions = { read: true, write: false, delete: false };
-// Missing 'delete' or a typo'd key → compile error.
-```
-
-</td>
-<td style="background-color:#f0f0f0">
-
-```javascript
-// Just an object literal — no guarantee the keys are right.
-const perms = { read: true, write: false, delete: false };
-perms.detele; // typo → undefined, no warning
-```
-
-</td>
-</tr>
-</table>
-
-### Omit<T, K> — Opposite of Pick
-
-<table>
-<tr>
-<th width="50%">🟦 TypeScript</th>
-<th width="50%">⬜ JavaScript before</th>
-</tr>
-<tr>
-<td>
-
-```typescript
-// Everything EXCEPT password.
-type SafeUser = Omit<User, 'password'>;
-
-const safe: SafeUser = { id: 1, username: 'john', email: 'john@mail.com' };
-// password is not assignable here — guaranteed.
-```
-
-</td>
-<td style="background-color:#f0f0f0">
-
-```javascript
-// Destructure-and-discard, relying on the dev to remember:
-const { password, ...safe } = user;
-// If someone later does res.json(user) instead of res.json(safe),
-// the password leaks and nothing warns them.
-```
-
-</td>
-</tr>
-</table>
-
----
-
-## Utility Types Comparison
-
-| Type | Purpose | Example |
-|------|---------|---------|
-| `Partial<T>` | Make all properties optional | PATCH requests |
-| `Required<T>` | Make all properties required | Form validation |
-| `Pick<T, K>` | Select specific properties | API responses, safe data |
-| `Omit<T, K>` | Remove specific properties | Hide sensitive fields |
-| `Readonly<T>` | Make all properties readonly | Immutable data |
-| `Record<K, V>` | Create object with specific keys | Configuration objects |
-
----
-
-## Practical Patterns: When to Use Each
-
-```typescript
-// API responses — Pick (never expose password)
-type UserResponse = Pick<User, 'id' | 'username' | 'email'>;
-
-// PATCH requests — Partial + Pick
-type UpdateUserBody = Partial<Pick<User, 'username' | 'email'>>;
-
-// Configuration — Record
-type Environment = Record<'development' | 'production' | 'test', {
-  database: string; port: number;
-}>;
-
-// DTOs — Omit
-type UserDTO = Omit<User, 'password' | 'createdAt'>;
-```
-
----
-
 ## Testing Your PATCH Endpoint
+
+Now that the endpoint is wired up, test it. Each call exercises a different branch of the validation we just wrote:
 
 ```typescript
 import axios from 'axios';
@@ -550,28 +385,6 @@ npx ts-node test.ts
 9. **The JS we wrote before** expressed all of this as comments + manual checks — utility types turn those promises into compiler guarantees
 
 </div>
-
----
-
-## Running Your Final Server
-
-```bash
-npm run build
-npm start
-```
-
-```bash
-# Get all users
-curl http://localhost:3000/api/users
-# Create new user
-curl -X POST http://localhost:3000/api/users \
-  -H "Content-Type: application/json" \
-  -d '{"username":"alice","email":"alice@mail.com"}'
-# Update user (PATCH)
-curl -X PATCH http://localhost:3000/api/users/1 \
-  -H "Content-Type: application/json" \
-  -d '{"username":"alice_updated"}'
-```
 
 ---
 
@@ -769,6 +582,195 @@ The time you invest in types now saves debugging time later. That's the TypeScri
 - [TypeScript Handbook: Decorators](https://www.typescriptlang.org/docs/handbook/decorators.html)
 - [Express TypeScript Guide](https://expressjs.com/)
 - [Reflect-Metadata Documentation](https://github.com/rbuckton/reflect-metadata)
+
+---
+
+## Other Useful Utility Types
+
+### Required<T> — Opposite of Partial
+
+<table>
+<tr>
+<th width="50%">🟦 TypeScript</th>
+<th width="50%">⬜ JavaScript before</th>
+</tr>
+<tr>
+<td>
+
+```typescript
+interface User { id: number; username?: string; email?: string; }
+
+// Removes every '?' — all fields now mandatory.
+type FullUser = Required<User>;
+
+const user: FullUser = { id: 1, username: 'john', email: 'john@mail.com' };
+// Missing any field → compile error.
+```
+
+</td>
+<td style="background-color:#f0f0f0">
+
+```javascript
+// Enforced by hand, field by field:
+function assertFullUser(u) {
+  if (u.id == null)       throw new Error('id required');
+  if (u.username == null) throw new Error('username required');
+  if (u.email == null)    throw new Error('email required');
+}
+```
+
+</td>
+</tr>
+</table>
+
+### Readonly<T> — Make All Properties Readonly
+
+<table>
+<tr>
+<th width="50%">🟦 TypeScript</th>
+<th width="50%">⬜ JavaScript before</th>
+</tr>
+<tr>
+<td>
+
+```typescript
+type ReadonlyUser = Readonly<User>;
+
+const user: ReadonlyUser = { id: 1, username: 'john', email: 'john@mail.com' };
+user.username = 'jane'; // ❌ compile error — readonly
+```
+
+</td>
+<td style="background-color:#f0f0f0">
+
+```javascript
+// Only a RUNTIME freeze, and it fails silently (or throws
+// only in strict mode) instead of at compile time.
+const user = Object.freeze({ id: 1, username: 'john', email: 'john@mail.com' });
+user.username = 'jane'; // silently ignored in non-strict JS
+```
+
+</td>
+</tr>
+</table>
+
+### Record<K, V> — Object with Specific Keys
+
+<table>
+<tr>
+<th width="50%">🟦 TypeScript</th>
+<th width="50%">⬜ JavaScript before</th>
+</tr>
+<tr>
+<td>
+
+```typescript
+// Exactly these three keys, each a boolean.
+type Permissions = Record<'read' | 'write' | 'delete', boolean>;
+
+const perms: Permissions = { read: true, write: false, delete: false };
+// Missing 'delete' or a typo'd key → compile error.
+```
+
+</td>
+<td style="background-color:#f0f0f0">
+
+```javascript
+// Just an object literal — no guarantee the keys are right.
+const perms = { read: true, write: false, delete: false };
+perms.detele; // typo → undefined, no warning
+```
+
+</td>
+</tr>
+</table>
+
+### Omit<T, K> — Opposite of Pick
+
+<table>
+<tr>
+<th width="50%">🟦 TypeScript</th>
+<th width="50%">⬜ JavaScript before</th>
+</tr>
+<tr>
+<td>
+
+```typescript
+// Everything EXCEPT password.
+type SafeUser = Omit<User, 'password'>;
+
+const safe: SafeUser = { id: 1, username: 'john', email: 'john@mail.com' };
+// password is not assignable here — guaranteed.
+```
+
+</td>
+<td style="background-color:#f0f0f0">
+
+```javascript
+// Destructure-and-discard, relying on the dev to remember:
+const { password, ...safe } = user;
+// If someone later does res.json(user) instead of res.json(safe),
+// the password leaks and nothing warns them.
+```
+
+</td>
+</tr>
+</table>
+
+---
+
+## Utility Types Comparison
+
+| Type | Purpose | Example |
+|------|---------|---------|
+| `Partial<T>` | Make all properties optional | PATCH requests |
+| `Required<T>` | Make all properties required | Form validation |
+| `Pick<T, K>` | Select specific properties | API responses, safe data |
+| `Omit<T, K>` | Remove specific properties | Hide sensitive fields |
+| `Readonly<T>` | Make all properties readonly | Immutable data |
+| `Record<K, V>` | Create object with specific keys | Configuration objects |
+
+---
+
+## Practical Patterns: When to Use Each
+
+```typescript
+// API responses — Pick (never expose password)
+type UserResponse = Pick<User, 'id' | 'username' | 'email'>;
+
+// PATCH requests — Partial + Pick
+type UpdateUserBody = Partial<Pick<User, 'username' | 'email'>>;
+
+// Configuration — Record
+type Environment = Record<'development' | 'production' | 'test', {
+  database: string; port: number;
+}>;
+
+// DTOs — Omit
+type UserDTO = Omit<User, 'password' | 'createdAt'>;
+```
+
+---
+
+## Running Your Final Server
+
+```bash
+npm run build
+npm start
+```
+
+```bash
+# Get all users
+curl http://localhost:3000/api/users
+# Create new user
+curl -X POST http://localhost:3000/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","email":"alice@mail.com"}'
+# Update user (PATCH)
+curl -X PATCH http://localhost:3000/api/users/1 \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice_updated"}'
+```
 
 ---
 
