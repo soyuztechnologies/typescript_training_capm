@@ -191,7 +191,28 @@ PATCH /api/users/1  { "id": 999 }                          ❌ id not in the typ
 
 ## Step-by-Step PATCH Logic
 
-### Step 1: Validate the ID Parameter
+We'll build the `patch` handler one piece at a time. **Step 1 declares the method**; every step after it adds code **inside** that method body; the **final step wires it to a route**.
+
+### Step 1: Define the `patch` Method Signature
+
+Start by declaring the method on the `UserController` class. The important part is the request **body type**, `Partial<Pick<User, 'username' | 'email'>>` — the composed utility type from the previous section.
+
+```typescript
+// ─────────────────────────────────────────────
+// Partial<Pick<User, 'username' | 'email'>>:
+//   - Pick    → only username & email are allowed
+//   - Partial → both optional
+//   - id, password, etc. are NOT accessible at all
+// ─────────────────────────────────────────────
+@LogMethod
+patch(req: Request<UserParams, {}, Partial<Pick<User, 'username' | 'email'>>>, res: Response): void {
+  // Steps 2–6 below all go INSIDE this method body
+}
+```
+
+> 💡 **Concept:** `Request<Params, ResBody, ReqBody>` takes three type arguments — the route params (`UserParams`), the response body (`{}`), and the **request body**. By passing `Partial<Pick<User, 'username' | 'email'>>` as the third, TypeScript guarantees `req.body` can only ever contain an optional `username` and/or `email` — never `id` or `password`.
+
+### Step 2: Validate the ID Parameter
 ```typescript
 const rawId    = req.params['id'] ?? '';
 const parsedId = parseInt(rawId, 10);
@@ -202,7 +223,7 @@ if (isNaN(parsedId)) {
 }
 ```
 
-### Step 2: Find the User to Update
+### Step 3: Find the User to Update
 ```typescript
 const index = users.findIndex((u: User) => u.id === parsedId);
 if (index === -1) {
@@ -212,7 +233,7 @@ if (index === -1) {
 ```
 `findIndex` gives the position so we can update in place.
 
-### Step 3: Validate the Body
+### Step 4: Validate the Body
 ```typescript
 const { username, email } = req.body;
 
@@ -231,7 +252,7 @@ if (email !== undefined && !email.trim()) {
 ```
 Key pattern: `username !== undefined` — only validate fields that were actually sent.
 
-### Step 4: Merge Update with Existing Data
+### Step 5: Merge Update with Existing Data
 
 <table>
 <tr>
@@ -278,12 +299,23 @@ const update1 = { ...(true  && { name: 'alice' }) }; // { name: 'alice' }
 const update2 = { ...(false && { name: 'bob'   }) }; // {}
 ```
 
-### Step 5: Save and Return
+### Step 6: Save and Return
 ```typescript
 users[index] = updatedUser;
 const response: ApiResponse<User> = { data: updatedUser, success: true };
 res.json(response);
 ```
+This closes the `patch` method body we opened in Step 1.
+
+### Step 7: Register the Route — link `patch` to `app.patch`
+
+The method is now complete, but Express won't call it until we connect it to a route. Add this alongside the other route registrations (right after `const ctrl = new UserController();`):
+
+```typescript
+app.patch('/api/users/:id', ctrl.patch.bind(ctrl));
+```
+
+> 💡 **Concept:** `PATCH` is the HTTP verb for *partial* updates — the perfect match for our `Partial<...>` body type. `.bind(ctrl)` preserves `this` so the decorated method still works when Express invokes it (same binding rule from Step 4).
 
 ---
 
